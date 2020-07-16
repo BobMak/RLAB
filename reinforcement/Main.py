@@ -1,16 +1,16 @@
 import numpy as np
 import gym
 
-from reinforcement.Agent import selfSuperModel, selfSuperPloicy
+# from reinforcement.Agent import selfSuperModel, selfSuperPloicy
+from reinforcement import DQLearn
 
 
 env = gym.make('CartPole-v0')
-# Agent
-model = selfSuperModel(env)
-policy = selfSuperPloicy(env)
+
 # 
 prev_observation = None
 action = env.action_space.sample()
+
 
 for i_episode in range(20):
     observation = env.reset()
@@ -21,4 +21,5 @@ for i_episode in range(20):
         if done:
             print("Episode finished after {} timesteps".format(t+1))
             break
+
 env.close()
