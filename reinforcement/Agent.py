@@ -77,7 +77,7 @@ class AutoencoderModel:
     def __init__(self, obs_dim, act_dim):
         # has to be less than output and less than input
         # How deep? How to determine the depth of the encoder-decoder thingy?
-        # What is input dimention? Only current observation or memory as well?
+        # What is input dimention? Only current obs or memory as well?
         encoder_out = None
         self.encoder = nn.Sequential( nn.Linear(obs_dim, 64),
             nn.Tanh(),

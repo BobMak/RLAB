@@ -30,7 +30,7 @@ class NNAPolicy:
         self.criterion = nn.MSELoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
     def forward(self, obs):
-        # Predict future based on current action and observation
+        # Predict future based on current action and obs
         expRewards, actions = [], []
         for n in range(self.action_space.n):
             act = [0 for x in range(self.action_space.n)]
@@ -38,6 +38,7 @@ class NNAPolicy:
             expRewards.append(self.model(torch.tensor(act.extend(obs))))
             actions.append(act)
         self.expReward = max(expRewards)
+        # perform the action giving max expected reward
         action = actions[expRewards.index(max(expRewards))]
         return action
     def backward(self, newReward):
@@ -49,7 +50,6 @@ class NNAPolicy:
         self.optimizer.step()
     def act(self, ob, rew, done):
         act = self.forward(ob)
-        self.backward(rew)
         return act
 
 
@@ -65,12 +65,22 @@ if __name__ == '__main__':
     episode_count = 100
     reward = 0
     done = False
+
     for i in range(episode_count):
+        batch_rew = []
+        batch_act = []
+        batch_obs = []
+        batch_pred = []
         ob = env.reset()
         while True:
             action = agent.act(ob, reward, done)
             ob, reward, done, _ = env.step(action)
+            batch_rew.append(reward)
+            batch_act.append(action)
+            batch_obs.append(ob)
+            batch_pred.append()
             if done:
+                agent.backward()
                 break
             # Note there's no env.render() here. But the environment still can open window and
             # render if asked by env.monitor: it calls env.render('rgb_array') to record video.
