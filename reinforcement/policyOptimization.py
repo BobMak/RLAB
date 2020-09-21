@@ -90,19 +90,15 @@ for n in range(epochs):
             if sa_count > batch_size:
                 sa_count = 0
                 break
-    s = []
-    r = []
-    a = []
+
     for trj in trajectories:
-        # s += trj[0]
-        # r += trj[1]
-        # a += trj[2]
         policy.zero_grad()
         grad = getGrad(policy, trj[0], trj[1], trj[2])
         grad.backward()
         optimizer.step()
     print("avg rewards:", sum(sum(trj[1]) for trj in trajectories)/len(trajectories))
     trajectories = []
+
 
 obs = env.reset()
 env.render()
