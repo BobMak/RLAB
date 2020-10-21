@@ -29,14 +29,6 @@ class Agent:
         np.dot(inpVec, self.hypernet)
         pass
 
-# off-policy vs on-policy
-# stochastic vs deterministic policies
-# categorical vs gaussian-diagonal (multivariate normal distribution)
-# 
-
-# Model for world-understanding and the policy for decision making.
-# Self-supervised continuous pre-training. Pre-train the model using the input from
-# the policy. Pre-train new network using updated policy for better representation search
 
 # Model. Tries to minimize the state prediction error
 class selfSuperModel(nn.Module):

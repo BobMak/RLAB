@@ -15,9 +15,7 @@ import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
 
 
-
 env = gym.make('CartPole-v0')
-
 env.reset()
 
 batch_size = 5000
@@ -103,7 +101,7 @@ for n in range(epochs):
 obs = env.reset()
 env.render()
 obs = torch.as_tensor(obs, dtype=torch.float32, device=device)
-print("testing")
+print("test")
 for _ in range(10):
     rewards = []
     done = False
