@@ -1,11 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.functional as F
 
-
-# state vector 512
-# obs   -> state += upd( obs )
-# state -> state+n
 
 class Generator:
     def __init__(self, in_features, hid_features):
@@ -23,7 +18,7 @@ class Generator:
         )
 
     def toStateSpace(self, data):
-        pass
+        raise NotImplemented()
 
     def generage(self):
         res = []

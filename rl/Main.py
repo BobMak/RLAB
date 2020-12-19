@@ -1,8 +1,6 @@
-import numpy as np
 import gym
 
-# from reinforcement.Agent import selfSuperModel, selfSuperPloicy
-from reinforcement import DQLearn
+# from rl.Agent import selfSuperModel, selfSuperPloicy
 
 
 env = gym.make('CartPole-v0')
