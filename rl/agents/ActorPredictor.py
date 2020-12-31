@@ -4,12 +4,12 @@ import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
 from torch.distributions.normal import Normal
 
-from PolicyOptimization import PolicyGradients
+from agents.PolicyOptimization import PolicyGradients
 
 
 class ActorCritic(PolicyGradients):
-    def __init__(self, inp, hidden, out, isImage=False, isContinuous=False, useLSTM=False):
-        super().__init__(inp, hidden, out, isImage=isImage, isContinuous=isContinuous, useLSTM=useLSTM)
+    def __init__(self, inp, hid, out, isImage=False, isContinuous=False, useLSTM=False):
+        super().__init__(inp, hid, out, isImage=isImage, isContinuous=isContinuous, useLSTM=useLSTM)
         # replace the actor layer with an actorCritic layer
         if isContinuous:
             policy = [*self.policy[:-1]]

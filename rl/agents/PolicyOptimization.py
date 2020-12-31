@@ -9,54 +9,49 @@ import torch.optim
 from torch.distributions.categorical import Categorical
 from torch.distributions.normal import Normal
 
-from agents import Utils
+import Utils
 
 
 class PolicyGradients(nn.Module):
-    def __init__(self, inp, hidden, out,
-                 isImage=False, isContinuous=False, useLSTM=False,
-                 nLayers=1):
+    def __init__(self, inp, hid, out,
+                 isContinuous=False, useLSTM=False, nLayers=1):
         super(PolicyGradients, self).__init__()
+        self.hid          = hid
+        self.nls          = nLayers
         self.isContinuous = isContinuous
-        self.useLSTM = useLSTM
-        self.hidden = hidden
-        self.device = torch.device("cpu")  # cpu
+        self.useLSTM      = useLSTM
+        self.hidden       = hid
+        self.device       = torch.device("cpu")  # cpu
         policy = []
-        if isImage:
-            policy.append(nn.Conv2d(3, 1, kernel_size=3, stride=1, padding=1))
-            policy.append(nn.BatchNorm2d(4))
-
-        policy.append(nn.Linear(inp, hidden))
+        policy.append(nn.Linear(inp, hid))
         policy.append(nn.ReLU())
-        # policy.append(nn.Dropout())
         if useLSTM:
-            policy.append(nn.LSTM(hidden, hidden))
+            policy.append(nn.LSTM(hid, hid))
             policy.append(nn.ReLU())
-            self.hiddenLSTM = (torch.randn(1, 1, hidden),
-                               torch.randn(1, 1, hidden))
+            self.hiddenLSTM = (torch.randn(1, 1, hid),
+                               torch.randn(1, 1, hid))
             self.hiddenIdx = len(policy)-2
         else:
-            policy.append(nn.Linear(hidden, hidden))
+            policy.append(nn.Linear(hid, hid))
             policy.append(nn.ReLU())
 
         for n in range(nLayers):
-            policy.append(nn.Linear(hidden, hidden))
+            policy.append(nn.Linear(hid, hid))
             policy.append(nn.ReLU())
 
         if isContinuous:
-            policy.append(Utils.NormalOutput(hidden, out, activation=nn.Sigmoid))
+            policy.append(Utils.NormalOutput(hid, out, activation=nn.Sigmoid))
         else:
-            policy.append(nn.Linear(hidden, out))
+            policy.append(nn.Linear(hid, out))
             policy.append(nn.Softmax())
         self.policy = nn.Sequential(*policy).to(self.device)
 
         learning_rate = 1e-2
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=learning_rate)
 
-        self.trainStates = torch.tensor([]).to(self.device)
+        self.trainStates  = torch.tensor([]).to(self.device)
         self.trainActions = torch.tensor([]).to(self.device)
         self.trainRewards = torch.tensor([]).to(self.device)
-
         self.avgRewards = 0
 
     def forward(self, inp):
@@ -64,7 +59,7 @@ class PolicyGradients(nn.Module):
             out = inp
             for layer in self.policy[:self.hiddenIdx]:
                 out = layer(out)
-            # LSTM requires hidden vector from the previous pass
+            # LSTM requires hid vector from the previous pass
             # ensure correct format for the backward pass
             out = out.view(out.numel() // self.hidden, 1, -1)
             out, self.hiddenLSTM = self.policy[self.hiddenIdx](out, self.hiddenLSTM)
@@ -117,5 +112,14 @@ class PolicyGradients(nn.Module):
         self.hiddenLSTM = (torch.randn(1, 1, self.hidden),
                            torch.randn(1, 1, self.hidden))
 
+    def setInputModule(self, module):
+        withInput = [module]
+        withInput.extend(self.policy)
+        self.hiddenIdx += 1
+        self.policy = nn.Sequential(*withInput).to(self.device)
+
     def __str__(self):
-        return f"PolicyGradients" + ("Cont" if self.isContinuous else "Disc")
+        return f"PG_h{self.hid}l{self.nls}_" + ("C" if self.isContinuous else "D") \
+                                             + ("L" if self.useLSTM else "_")
+
+

@@ -4,17 +4,15 @@ import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
 from torch.distributions.normal import Normal
 
-from PolicyOptimization import PolicyGradients
-from agents import Utils
+from agents.PolicyOptimization import PolicyGradients
+import Utils
 
 
 class ActorCritic(PolicyGradients):
-    def __init__(self, inp, hidden, out,
-                 isImage=False, isContinuous=False, useLSTM=False,
-                 nLayers=1):
-        super().__init__(inp, hidden, out,
-                         isImage=isImage, isContinuous=isContinuous,
-                         useLSTM=useLSTM, nLayers=nLayers)
+    def __init__(self, inp, hid, out,
+                 isContinuous=False, useLSTM=False, nLayers=1):
+        super().__init__(inp, hid, out,
+                         isContinuous=isContinuous, useLSTM=useLSTM, nLayers=nLayers)
         # replace the actor layer with an actorCritic layer
         if isContinuous:
             policy = [*self.policy[:-1]]
@@ -22,7 +20,7 @@ class ActorCritic(PolicyGradients):
             policy = [*self.policy[:-2]]
         self.policy = nn.Sequential(
             *policy,
-            Utils.ActorCriticOutput(hidden, out, isContinuous)
+            Utils.ActorCriticOutput(hid, out, isContinuous)
         ).to(self.device)
         
         self.criticValues = torch.tensor([]).to(self.device)
@@ -57,17 +55,18 @@ class ActorCritic(PolicyGradients):
         # verr = self.criticValues - self.trainRewards//200
         grad = -(outAction * r).mean() #-(value * verr).mean()
         grad.backward()
-        print("train reward", self.trainRewards.mean(), "grad", grad, "advtg", r)
+        print("train reward", self.trainRewards.mean(), "grad", grad)
         self.avgRewards = self.trainRewards.mean()
         self.optimizer.step()
         print("train value", self.criticValues.mean())
         # Reset episode buffer
         self.trainRewards = torch.tensor([]).to(self.device)
         self.trainActions = torch.tensor([]).to(self.device)
-        self.trainStates = torch.tensor([]).to(self.device)
+        self.trainStates  = torch.tensor([]).to(self.device)
         self.criticValues = torch.tensor([]).to(self.device)
         if self.useLSTM:
             self.clearLSTMState()
 
     def __str__(self):
-        return "ActorCritic" + ("Cont" if self.isContinuous else "Disc")
+        return f"AC_h{self.hid}l{self.nls}_" + ("C" if self.isContinuous else "D") \
+                                             + ("L" if self.useLSTM else "_")
