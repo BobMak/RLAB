@@ -5,7 +5,7 @@ import numpy as np
 
 import gym_miniworld
 
-import Utils
+from utils.Cache import load_model, save_model
 from agents.ActorCritic import ActorCritic
 
 
@@ -97,9 +97,9 @@ class World3DInput(nn.Module):
     def __init__(self, out):
         """Process 3d worlds env input. see 3d worlds env for input format"""
         super().__init__()
-        self.l1 = nn.Conv2d(3, 1, (3,3))
+        self.l1 = nn.Conv2d(3, 12, (3,3))
         self.a1 = nn.ReLU()
-        self.l2 = nn.Conv2d(1, 1, (5, 5))
+        self.l2 = nn.Conv2d(12, 1, (5, 5))
         self.a2 = nn.ReLU()
         self.l3 = nn.Linear(54*74, out)
         self.a3 = nn.ReLU()
@@ -137,7 +137,7 @@ if __name__ == "__main__":
     print("observation sample", env.observation_space.sample())
     print("env observation", env.observation_space.shape[0])
 
-    input_size  = 32
+    input_size  = 64
     hidden_size = input_size
     if is_continuous:
         output_size = env.action_space.shape[0]
@@ -158,11 +158,11 @@ if __name__ == "__main__":
                          nLayers=layers_number)
 
     if use_cached:
-        policy = Utils.load_model(policy)
+        policy = load_model(policy)
 
     policy.setInputModule(World3DInput(hidden_size))
-    policy = trainMountainCarPG(policy, env, batch_size=500, epochs=25)
-    Utils.save_model(policy)
+    policy = trainMountainCarPG(policy, env, batch_size=500, epochs=20)
+    save_model(policy)
 
     evalueateMountainCar(policy, env)
     env.close()

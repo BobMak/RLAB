@@ -5,7 +5,7 @@ from torch.distributions.categorical import Categorical
 from torch.distributions.normal import Normal
 
 from agents.PolicyOptimization import PolicyGradients
-import Utils
+from utils.Modules import ActorCriticOutput
 
 
 class ActorCritic(PolicyGradients):
@@ -20,50 +20,72 @@ class ActorCritic(PolicyGradients):
             policy = [*self.policy[:-2]]
         self.policy = nn.Sequential(
             *policy,
-            Utils.ActorCriticOutput(hid, out, isContinuous)
+            ActorCriticOutput(hid, out, isContinuous)
         ).to(self.device)
         
         self.criticValues = torch.tensor([]).to(self.device)
+        self.logProbs     = torch.tensor([]).to(self.device)
 
     def getAction(self, inputs):
         action, value = self.forward(inputs)
         self.criticValues = torch.cat([self.criticValues,
                                        torch.as_tensor(value, dtype=torch.float32, device=self.device)])
         if self.isContinuous:
-            sampled_action = Normal(*action).sample()
+            action_distribution = Normal(*action)
+            sampled_action = action_distribution.sample()
         else:
-            sampled_action = Categorical(F.softmax(action)).sample().item()
+            action_distribution = Categorical(F.softmax(action))
+            sampled_action = action_distribution.sample()  #.item()
+        # save the log likelihood of taking that action for backprop
+        logProb = action_distribution.log_prob(sampled_action)
+        self.logProbs = torch.cat([self.logProbs, logProb])
+        if not self.isContinuous:
+            sampled_action = sampled_action.item()
         return sampled_action
 
     # gradient of one trajectory
     def backprop(self):
-        self.policy.zero_grad()
-        action, value = self.forward(self.trainStates)
-
-        if self.isContinuous:
-            outAction = Normal(*action).log_prob(self.trainActions)
-            outAction[outAction != outAction] = 0  # replace NaNs with 0s
-        else:
-            outAction = Categorical(action).log_prob(self.trainActions)
-
+        # self.policy.zero_grad()
+        # compute one outputs sequentially if using LSTM
+        # if self.useLSTM:
+        #     out = torch.tensor([]).to(self.device)
+        #     self.clearLSTMState()
+        #     for idx in range(len(self.trainStates)):
+        #         action, _ = self.forward(self.trainStates[idx])
+        #         out = torch.cat([out, *action])
+        #         if self.isContinuous:
+        #             out = Normal(*out).log_prob(self.trainActions)
+        #             out[out != out] = 0  # replace NaNs with 0s
+        #         else:
+        #             out = Categorical(out).log_prob(self.trainActions)
+        # else:
+        #     out, _ = self.forward(self.trainStates)
+        #     if self.isContinuous:
+        #         out = Normal(*out).log_prob(self.trainActions)
+        #         out[out!=out] = 0  # replace NaNs with 0s
+        #     else:
+        #         out = Categorical(out).log_prob(self.trainActions)
+        self.logProbs[self.logProbs != self.logProbs] = 0  # replace all nans with 0s
         # critic update
         valueError = self.criticValues - self.trainRewards
         valueGrad = (valueError**2).mean()
         valueGrad.backward(retain_graph=True)
         # actor update
-        r = self.criticValues  # self.trainRewards -
+        r = self.criticValues  # advantage  self.trainRewards # -
         # verr = self.criticValues - self.trainRewards//200
-        grad = -(outAction * r).mean() #-(value * verr).mean()
+        grad = -(self.logProbs * r).mean() #-(value * verr).mean()
         grad.backward()
-        print("train reward", self.trainRewards.mean(), "grad", grad)
+        print("avg train reward", self.trainRewards.mean(), "grad", grad)
         self.avgRewards = self.trainRewards.mean()
         self.optimizer.step()
-        print("train value", self.criticValues.mean())
+        self.policy.zero_grad()
+        print("avg estimated reward", self.criticValues.mean())
         # Reset episode buffer
         self.trainRewards = torch.tensor([]).to(self.device)
         self.trainActions = torch.tensor([]).to(self.device)
         self.trainStates  = torch.tensor([]).to(self.device)
         self.criticValues = torch.tensor([]).to(self.device)
+        self.logProbs     = torch.tensor([]).to(self.device)
         if self.useLSTM:
             self.clearLSTMState()
 

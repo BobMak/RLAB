@@ -5,11 +5,12 @@ for continuous or discreet action spaces
 """
 
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim
 from torch.distributions.categorical import Categorical
 from torch.distributions.normal import Normal
 
-import Utils
+from utils.Modules import NormalOutput
 
 
 class PolicyGradients(nn.Module):
@@ -40,10 +41,9 @@ class PolicyGradients(nn.Module):
             policy.append(nn.ReLU())
 
         if isContinuous:
-            policy.append(Utils.NormalOutput(hid, out, activation=nn.Sigmoid))
+            policy.append(NormalOutput(hid, out, activation=nn.Sigmoid))
         else:
             policy.append(nn.Linear(hid, out))
-            policy.append(nn.Softmax())
         self.policy = nn.Sequential(*policy).to(self.device)
 
         learning_rate = 1e-2
@@ -52,11 +52,12 @@ class PolicyGradients(nn.Module):
         self.trainStates  = torch.tensor([]).to(self.device)
         self.trainActions = torch.tensor([]).to(self.device)
         self.trainRewards = torch.tensor([]).to(self.device)
+        self.logProbs     = []
         self.avgRewards = 0
 
-    def forward(self, inp):
+    def forward(self, x):
         if self.useLSTM:
-            out = inp
+            out = x
             for layer in self.policy[:self.hiddenIdx]:
                 out = layer(out)
             # LSTM requires hid vector from the previous pass
@@ -67,14 +68,22 @@ class PolicyGradients(nn.Module):
                 out = layer(out)
             return out
         else:
-            return self.policy(inp)
+            return self.policy(x)
 
-    def getAction(self, inp):
+    def getAction(self, x):
+        action = self.forward(x)
         if self.isContinuous:
-            action = Normal(*self.forward(inp)).sample()
+            action_distribution = Normal(*action)
+            sampled_action = action_distribution.sample()
         else:
-            action = Categorical(self.forward(inp)).sample().item()
-        return action
+            action_distribution = Categorical(F.softmax(action))
+            sampled_action = action_distribution.sample()  # .item()
+        # save the log likelihood of taking that action for backprop
+        logProb = action_distribution.log_prob(sampled_action)
+        self.logProbs.append(logProb)
+        if not self.isContinuous:
+            sampled_action = sampled_action.item()
+        return sampled_action
 
     # Save episode's rewards and state-actions
     def saveEpisode(self, states, actions, rewards):
@@ -87,24 +96,34 @@ class PolicyGradients(nn.Module):
 
     # gradient of one trajectory
     def backprop(self):
-        self.policy.zero_grad()
-        if self.isContinuous:
-            out = Normal(*self.forward(self.trainStates)).log_prob(self.trainActions)
-            out[out!=out] = 0  # replace NaNs with 0s
-        else:
-            out = Categorical(self.forward(self.trainStates)).log_prob(self.trainActions)
-
+        # compute one outputs sequentially if using LSTM
+        # if self.useLSTM:
+        #     out = []
+        #     self.clearLSTMState()
+        #     for idx in range(len(self.trainStates)):
+        #         out.append(self.forward(self.trainStates[idx]))
+        # else:
+        #     out = self.forward(self.trainStates)
+        #
+        # if self.isContinuous:
+        #     out = Normal(*out).log_prob(self.trainActions)
+        #     out[out != out] = 0  # replace NaNs with 0s
+        # else:
+        #     out = Categorical(out).log_prob(self.trainActions)
+        logProbs = torch.stack(self.logProbs)
         # Compute an advantage
         r = self.trainRewards - self.avgRewards
-        grad = -(out * r).mean()
+        grad = -(logProbs * r).mean()
         grad.backward()
         self.optimizer.step()
+        self.policy.zero_grad()
         print("train reward", self.trainRewards.mean(), "grad", grad, "advtg", r)
         self.avgRewards = self.trainRewards.mean()
         # Reset episode buffer
         self.trainRewards = torch.tensor([]).to(self.device)
         self.trainActions = torch.tensor([]).to(self.device)
         self.trainStates  = torch.tensor([]).to(self.device)
+        self.logProbs     = []
         if self.useLSTM:
             self.clearLSTMState()
 

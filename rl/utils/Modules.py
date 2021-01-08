@@ -6,7 +6,13 @@ import torch.nn as nn
 from torch.distributions.categorical import Categorical
 from torch.distributions.normal import Normal
 
-import pickle
+
+class Flatten(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        return torch.flatten(x)
 
 
 class NormalOutput(nn.Module):
@@ -39,37 +45,3 @@ class ActorCriticOutput(nn.Module):
         value  = self.critic(inputs)
         action = self.actor (inputs)
         return action, value
-
-
-class EnvNormalizer():
-    def __init__(self, env):
-        self.mean = (env.observation_space.high + env.observation_space.low) / 2
-        self.var  = (env.observation_space.high - env.observation_space.low) / 2
-
-    def __call__(self, inp):
-        return (inp - self.mean) * self.var
-
-
-class Flatten(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, x):
-        return torch.flatten(x)
-
-
-def save_model(model):
-    with open(str(model)+".pkl", 'wb') as f:
-        pickle.dump(model, f, pickle.HIGHEST_PROTOCOL)
-
-
-def load_model(model):
-    with open(str(model)+".pkl", 'rb') as f:
-        model = pickle.load(f)
-    return model
-
-def entropy( probabilities:[], base=None ):
-    logFu = { None:log, 2: log2, 10:log10 }[base]
-    return -sum( [ p * logFu(p) for p in probabilities ] )
-
-
