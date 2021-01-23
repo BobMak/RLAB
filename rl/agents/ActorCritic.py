@@ -1,6 +1,6 @@
+import wandb
 import torch.nn as nn
 import torch.optim
-import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
 from torch.distributions.normal import Normal
 
@@ -10,9 +10,10 @@ from utils.Modules import ActorCriticOutput
 
 class ActorCritic(PolicyGradients):
     def __init__(self, inp, hid, out,
-                 isContinuous=False, useLSTM=False, nLayers=1):
+                 isContinuous=False, useLSTM=False, nLayers=1, usewandb=True):
         super().__init__(inp, hid, out,
-                         isContinuous=isContinuous, useLSTM=useLSTM, nLayers=nLayers)
+                         isContinuous=isContinuous, useLSTM=useLSTM,
+                         nLayers=nLayers, usewandb=usewandb)
         # replace the actor layer with an actorCritic layer
         if isContinuous:
             policy = [*self.policy[:-1]]
@@ -22,73 +23,59 @@ class ActorCritic(PolicyGradients):
             *policy,
             ActorCriticOutput(hid, out, isContinuous)
         ).to(self.device)
-        
-        self.criticValues = torch.tensor([]).to(self.device)
-        self.logProbs     = torch.tensor([]).to(self.device)
+        self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=1e-2)
+
+        self.criticValues = []
+        self.logProbs     = []
 
     def getAction(self, inputs):
         action, value = self.forward(inputs)
-        self.criticValues = torch.cat([self.criticValues,
-                                       torch.as_tensor(value, dtype=torch.float32, device=self.device)])
+        self.criticValues.append(value)
         if self.isContinuous:
             action_distribution = Normal(*action)
-            sampled_action = action_distribution.sample()
+            sampled_action = action_distribution.rsample()
         else:
-            action_distribution = Categorical(F.softmax(action))
+            action_distribution = Categorical(logits=action)
             sampled_action = action_distribution.sample()  #.item()
         # save the log likelihood of taking that action for backprop
         logProb = action_distribution.log_prob(sampled_action)
-        self.logProbs = torch.cat([self.logProbs, logProb])
+        self.logProbs.append(logProb)
         if not self.isContinuous:
             sampled_action = sampled_action.item()
         return sampled_action
 
     # gradient of one trajectory
     def backprop(self):
-        # self.policy.zero_grad()
-        # compute one outputs sequentially if using LSTM
-        # if self.useLSTM:
-        #     out = torch.tensor([]).to(self.device)
-        #     self.clearLSTMState()
-        #     for idx in range(len(self.trainStates)):
-        #         action, _ = self.forward(self.trainStates[idx])
-        #         out = torch.cat([out, *action])
-        #         if self.isContinuous:
-        #             out = Normal(*out).log_prob(self.trainActions)
-        #             out[out != out] = 0  # replace NaNs with 0s
-        #         else:
-        #             out = Categorical(out).log_prob(self.trainActions)
-        # else:
-        #     out, _ = self.forward(self.trainStates)
-        #     if self.isContinuous:
-        #         out = Normal(*out).log_prob(self.trainActions)
-        #         out[out!=out] = 0  # replace NaNs with 0s
-        #     else:
-        #         out = Categorical(out).log_prob(self.trainActions)
-        self.logProbs[self.logProbs != self.logProbs] = 0  # replace all nans with 0s
+        #  dtype=torch.float32, device=self.device)
+        logProbs = torch.stack(self.logProbs)
+        criticValues = torch.stack(self.criticValues)
+        logProbs[logProbs != logProbs] = 0  # replace all nans with 0s
         # critic update
-        valueError = self.criticValues - self.trainRewards
-        valueGrad = (valueError**2).mean()
+        valueGrad = (criticValues - self.trainRewards).mean()
         valueGrad.backward(retain_graph=True)
         # actor update
-        r = self.criticValues  # advantage  self.trainRewards # -
-        # verr = self.criticValues - self.trainRewards//200
-        grad = -(self.logProbs * r).mean() #-(value * verr).mean()
+        r = self.trainRewards - criticValues.detach()  # advantage  self.trainRewards-criticValues
+        # verr = criticValues - self.trainRewards//200
+        grad = -(logProbs * r).mean()  #-(value * verr).mean()
         grad.backward()
-        print("avg train reward", self.trainRewards.mean(), "grad", grad)
+        rewardMean = self.trainRewards.mean().item()
+        print("avg train reward", rewardMean, "grad", grad.item())
         self.avgRewards = self.trainRewards.mean()
         self.optimizer.step()
-        self.policy.zero_grad()
-        print("avg estimated reward", self.criticValues.mean())
+        self.optimizer.zero_grad()
+        criticMean = criticValues.mean().item()
+        print("avg estimated reward", criticMean, "grad", valueGrad.item())
+        if self.usewandb:
+            wandb.log({"awgReward": rewardMean})
+            wandb.log({"awgCritic": criticMean})
         # Reset episode buffer
         self.trainRewards = torch.tensor([]).to(self.device)
         self.trainActions = torch.tensor([]).to(self.device)
         self.trainStates  = torch.tensor([]).to(self.device)
-        self.criticValues = torch.tensor([]).to(self.device)
-        self.logProbs     = torch.tensor([]).to(self.device)
+        self.criticValues = []
+        self.logProbs     = []
         if self.useLSTM:
             self.clearLSTMState()
 
     def __str__(self):
-        return f"AC_h{self.hid}l{self.nls}_" + ("C" if self.isContinuous else "D") \
-                                             + ("L" if self.useLSTM else "_")
+        return f"AC_h{super.__str__(self)[4:]}"

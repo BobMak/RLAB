@@ -3,9 +3,8 @@ Policy Gradients implementation
 for continuous or discreet action spaces
 
 """
-
+import wandb
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim
 from torch.distributions.categorical import Categorical
 from torch.distributions.normal import Normal
@@ -15,7 +14,7 @@ from utils.Modules import NormalOutput
 
 class PolicyGradients(nn.Module):
     def __init__(self, inp, hid, out,
-                 isContinuous=False, useLSTM=False, nLayers=1):
+                 isContinuous=False, useLSTM=False, nLayers=1, usewandb=False):
         super(PolicyGradients, self).__init__()
         self.hid          = hid
         self.nls          = nLayers
@@ -44,6 +43,7 @@ class PolicyGradients(nn.Module):
             policy.append(NormalOutput(hid, out, activation=nn.Sigmoid))
         else:
             policy.append(nn.Linear(hid, out))
+            # policy.append(nn.Sigmoid())
         self.policy = nn.Sequential(*policy).to(self.device)
 
         learning_rate = 1e-2
@@ -53,7 +53,8 @@ class PolicyGradients(nn.Module):
         self.trainActions = torch.tensor([]).to(self.device)
         self.trainRewards = torch.tensor([]).to(self.device)
         self.logProbs     = []
-        self.avgRewards = 0
+        self.avgRewards   = 0
+        self.usewandb    = usewandb
 
     def forward(self, x):
         if self.useLSTM:
@@ -76,7 +77,7 @@ class PolicyGradients(nn.Module):
             action_distribution = Normal(*action)
             sampled_action = action_distribution.sample()
         else:
-            action_distribution = Categorical(F.softmax(action))
+            action_distribution = Categorical(logits=action)
             sampled_action = action_distribution.sample()  # .item()
         # save the log likelihood of taking that action for backprop
         logProb = action_distribution.log_prob(sampled_action)
@@ -96,27 +97,15 @@ class PolicyGradients(nn.Module):
 
     # gradient of one trajectory
     def backprop(self):
-        # compute one outputs sequentially if using LSTM
-        # if self.useLSTM:
-        #     out = []
-        #     self.clearLSTMState()
-        #     for idx in range(len(self.trainStates)):
-        #         out.append(self.forward(self.trainStates[idx]))
-        # else:
-        #     out = self.forward(self.trainStates)
-        #
-        # if self.isContinuous:
-        #     out = Normal(*out).log_prob(self.trainActions)
-        #     out[out != out] = 0  # replace NaNs with 0s
-        # else:
-        #     out = Categorical(out).log_prob(self.trainActions)
         logProbs = torch.stack(self.logProbs)
         # Compute an advantage
-        r = self.trainRewards - self.avgRewards
+        r = self.trainRewards #- self.avgRewards
+        if self.usewandb:
+            wandb.log ({ "awgReward": r.mean() } )
         grad = -(logProbs * r).mean()
         grad.backward()
         self.optimizer.step()
-        self.policy.zero_grad()
+        self.optimizer.zero_grad()
         print("train reward", self.trainRewards.mean(), "grad", grad, "advtg", r)
         self.avgRewards = self.trainRewards.mean()
         # Reset episode buffer
@@ -136,9 +125,24 @@ class PolicyGradients(nn.Module):
         withInput.extend(self.policy)
         self.hiddenIdx += 1
         self.policy = nn.Sequential(*withInput).to(self.device)
+        learning_rate = 1e-2
+        self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=learning_rate)
+
+    def save(self, path="."):
+        if self.usewandb:
+            wandb.save(path + "/" + str(self))
+        else:
+            torch.save(self.policy, path + "/" + str(self))
+
+    def load(self, path="."):
+        if self.usewandb:
+            wandb.restore(path + "/" + str(self))
+        else:
+            self.policy = torch.load(path + "/" + str(self))
 
     def __str__(self):
         return f"PG_h{self.hid}l{self.nls}_" + ("C" if self.isContinuous else "D") \
-                                             + ("L" if self.useLSTM else "_")
+                                             + ("L" if self.useLSTM else "") \
+                                             + ("w" if self.usewandb else "")
 
 

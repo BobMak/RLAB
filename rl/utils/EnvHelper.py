@@ -29,6 +29,60 @@ class EnvHelper:
         else:
             self.inputHandler = EnvVanillaInput()
 
+        self._window = 50     # sliding window reward assignment
+        self._gamma  = 0.995  # discounted future reward gamma 
+        self.setComputeRewardsStrategy("rewardToGoDiscounted")
+
+    def computeRewards(self, rewards) -> [torch.Tensor]:
+        return None
+
+    def rewardToGo(self, rewards):
+        expRewrads = []
+        for i in range(len(rewards)):
+            expRewrads.append(torch.as_tensor([sum(rewards[i:])],
+                                          dtype=torch.float32,
+                                          device=self.policy.device))
+        return expRewrads
+
+    def rewardToGoDiscounted(self, rewards):
+        expRewrads = []
+        for i in range(len(rewards)):
+            r = 0
+            for idx, _r in enumerate(rewards[i:]):
+                r += _r * ( self._gamma**idx )
+            expRewrads.append(torch.as_tensor([r],
+                                          dtype=torch.float32,
+                                          device=self.policy.device))
+        return expRewrads
+
+    def rewardSum(self, rewards):
+        expRewrads = []
+        for i in range(len(rewards)):
+            expRewrads.append(torch.as_tensor([sum(rewards)],
+                                          dtype=torch.float32,
+                                          device=self.policy.device))
+        return expRewrads
+
+    def rewardSlidingWindow(self, rewards):
+        expRewrads = []
+        for i in range(len(rewards)):
+            idx_min = min(i, len(rewards) - self._window - 1)
+            idx_max = min(len(rewards) - 1, i + self._window)
+            expRewrads.append(torch.as_tensor([sum(rewards[idx_min:idx_max])],
+                                              dtype=torch.float32,
+                                              device=self.policy.device))
+        return expRewrads
+
+    def setComputeRewardsStrategy(self, strategy:str, gamma=0.995, window=50):
+        self._gamma  = gamma
+        self._window = window
+        self.computeRewards = {
+            "rewardToGo": self.rewardToGo,
+            "rewardToGoDiscounted": self.rewardToGoDiscounted,
+            "rewardSum": self.rewardSum,
+            "rewardSlidingWindow": self.rewardSlidingWindow
+        }[strategy]
+
     def trainPolicy(self):
         states = []
         actions = []
@@ -51,28 +105,7 @@ class EnvHelper:
                 rewards.append(reward)
 
                 if done:
-                    expRewrads = []
-                    for i in range(len(rewards)):
-                        # sliding window finite time horizon
-                        # window = 50
-                        # idx_min = min(i, len(rewards) - window - 1)
-                        # idx_max = min(len(rewards) - 1, i + window)
-                        # expRewrads.append(torch.as_tensor([sum(rewards[idx_min:idx_max])],
-                        #                                   dtype=torch.float32,
-                        #                                   device=policy.device))
-                        # reward to go
-                        # expRewrads.append(torch.as_tensor([sum(rewards[i:])],
-                        #                                   dtype=torch.float32,
-                        #                                   device=policy.device))
-                        # rewards = (rewards - np.mean(rewards))/(np.std(rewards)+1)
-                        # expRewrads = torch.as_tensor(rewards,
-                        #                                   dtype=torch.float32,
-                        #                                   device=self.policy.device)
-                        # reward sum
-                        expRewrads.append(torch.as_tensor([sum(rewards)],
-                                                          dtype=torch.float32,
-                                                          device=self.policy.device))
-                    self.policy.saveEpisode(states, actions, expRewrads)
+                    self.policy.saveEpisode(states, actions, self.computeRewards(rewards))
                     states = []
                     actions = []
                     rewards = []
@@ -85,8 +118,7 @@ class EnvHelper:
         return self.policy
 
     def evalueatePolicy(self):
-        inpNorm = EnvNormalizer(self.env)
-        obs = inpNorm(self.env.reset())
+        obs = self.inputHandler(self.env.reset())
         obs = torch.from_numpy(obs)
         obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
         print("testing")
@@ -97,12 +129,12 @@ class EnvHelper:
                 self.env.render()
                 action = self.policy.getAction(obs)  # .cpu().numpy()
                 obs, reward, done, info = self.env.step(action)
-                obs = np.array(inpNorm(obs), dtype=float)
+                obs = np.array(self.inputHandler(obs), dtype=float)
                 obs = torch.from_numpy(obs)
                 obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
                 rewards.append(reward)
             print("test rewards", sum(rewards))
-            obs = inpNorm(self.env.reset())
+            obs = self.inputHandler(self.env.reset())
             obs = torch.from_numpy(obs)
             obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
 
