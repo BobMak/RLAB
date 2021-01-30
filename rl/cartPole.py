@@ -5,6 +5,7 @@ import wandb
 
 from agents.ActorCritic import ActorCritic
 from agents.PolicyOptimization import PolicyGradients
+from agents.DQLearn import DQLearn
 from utils.Cache import load_model, save_model
 from utils.EnvHelper import EnvHelper
 
@@ -12,7 +13,7 @@ from utils.EnvHelper import EnvHelper
 if __name__ == "__main__":
     use_cached = False
     use_lstm = False
-    use_wandb = False
+    use_wandb = True
 
     env = gym.make("CartPole-v0")
     env.reset()
@@ -31,26 +32,32 @@ if __name__ == "__main__":
     # else:
     output_size = env.action_space.n
 
-    policy = PolicyGradients(input_size,
-                            hidden_size,
-                            output_size,
-                            isContinuous=False,
-                            useLSTM=use_lstm,
-                            nLayers=5,
-                            usewandb=use_wandb)
-    # policy = ActorCritic(input_size,
+    # policy = PolicyGradients(input_size,
+    #                         hidden_size,
+    #                         output_size,
+    #                         isContinuous=False,
+    #                         useLSTM=use_lstm,
+    #                         nLayers=5,
+    #                         usewandb=use_wandb)
+    # model = ActorCritic(input_size,
     #                      hidden_size,
     #                      output_size,
     #                      isContinuous=is_continuous,
     #                      useLSTM=use_lstm,
     #                      nLayers=2)
+    policy = DQLearn(input_size,
+                     hidden_size,
+                     output_size,
+                     useLSTM=use_lstm,
+                     nLayers=5,
+                     usewandb=use_wandb)
     if use_cached:
         policy.load("cachedModels")
         envHelper = EnvHelper(policy, env)
     else:
         if use_wandb:
-            wandb.watch(policy.policy, log="all")
-        envHelper = EnvHelper(policy, env, batch_size=100, epochs=10, normalize=False)
+            wandb.watch(policy.model, log="all")
+        envHelper = EnvHelper(policy, env, batch_size=5000, epochs=10, normalize=False)
         envHelper.trainPolicy()
         policy.save("cachedModels")
 

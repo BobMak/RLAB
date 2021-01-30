@@ -1,44 +1,69 @@
 import numpy as np
-
+import wandb
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from agents.Agent import Agent
 
-class NNAPolicy:
-    def __init__(self, action_space, observations):
+
+class DQLearn(Agent):
+    def __init__(self, inp, hid, action_space, useLSTM=False, nLayers=1, usewandb=False, epsilon=0.9, buffLenght=1):
+        super(DQLearn, self).__init__(inp + action_space, hid, 1, useLSTM, nLayers, usewandb)
         self.action_space = action_space
-        self.model = nn.Sequential(
-            nn.Linear(observations.shape[0]+action_space.n, 300),
-            nn.ReLU(),
-            nn.Linear(300, 300),
-            nn.ReLU(),
-            nn.Linear(300, 1),
-            nn.Sigmoid())
-        self.model.cuda()
-        self.expReward = 0
-        self.criterion = nn.MSELoss()
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
+        self.expRewards  = []
+        self.epsilon     = epsilon
+        self.criterion   = nn.MSELoss()
+        self.buffLenght  = buffLenght
+        self.buffCount   = 0
+        self.trainStateActions = []
+
     def forward(self, obs):
-        # Predict future based on current action and observation
+        # Predict state value based on current action and observation
         expRewards, actions = [], []
-        for n in range(self.action_space.n):
-            act = [0 for x in range(self.action_space.n)]
+        for n in range(self.action_space):
+            act = [0 for x in range(self.action_space)]
             act[n] = 1
-            expRewards.append(self.model(torch.tensor(act.extend(obs))))
+            stateAction = torch.cat( [torch.tensor(act), obs] )
+            expRewards.append(self.model( stateAction ))
+            self.trainStateActions.append(stateAction)
             actions.append(act)
-        # Q value
-        self.expReward = max(expRewards)
-        action = actions[np.argmax(expRewards)]
-        return action
-    def backward(self, newReward):
-        self.optimizer.zero_grad()
-        pred = torch.tensor([self.expReward])
-        real = torch.tensor([newReward])
-        print(pred.dim(), real.dim())
-        self.criterion(pred, real)
+        # pick action
+        if np.random.rand() < self.epsilon:
+            # use max Q value
+            actionIdx = np.argmax(expRewards)
+        else:
+            # explore
+            actionIdx = np.random.randint(0, len(actions))
+        self.expRewards.append(expRewards[actionIdx])
+        # action = actions[actionIdx]
+        return actionIdx
+
+    def getAction(self, obs):
+        return self.forward(obs)
+
+    def backprop(self):
+        pred = torch.stack(self.expRewards)
+        real = self.trainRewards
+        # print(pred.dim(), real.dim())
+        grad = ((pred - real)**2).mean()
+        grad.backward()
+        #self.criterion(pred, real)
         self.optimizer.step()
-    def act(self, ob, rew, done):
-        act = self.forward(ob)
-        self.backward(rew)
-        return act
+        self.optimizer.zero_grad()
+        if self.usewandb:
+            wandb.log ({ "awgReward": real.mean() } )
+        print("train reward", self.trainRewards.mean())
+        # self.avgRewards = self.trainRewards.mean()
+        self.buffCount += 1
+        if self.buffCount >= self.buffLenght:
+            self.buffCount = 0
+            # Reset episode buffer
+            self.trainRewards      = torch.tensor([]).to(self.device)
+            self.trainStateActions = []
+            self.expRewards        = []
+        if self.useLSTM:
+            self.clearLSTMState()
+
+    def __str__(self):
+        return f"DQN_h{super().__str__()}"

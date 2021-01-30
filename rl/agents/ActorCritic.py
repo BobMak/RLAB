@@ -16,14 +16,14 @@ class ActorCritic(PolicyGradients):
                          nLayers=nLayers, usewandb=usewandb)
         # replace the actor layer with an actorCritic layer
         if isContinuous:
-            policy = [*self.policy[:-1]]
+            policy = [*self.model[:-1]]
         else:
-            policy = [*self.policy[:-2]]
-        self.policy = nn.Sequential(
+            policy = [*self.model[:-1]]
+        self.model = nn.Sequential(
             *policy,
             ActorCriticOutput(hid, out, isContinuous)
         ).to(self.device)
-        self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=1e-2)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-2)
 
         self.criticValues = []
         self.logProbs     = []
@@ -33,7 +33,7 @@ class ActorCritic(PolicyGradients):
         self.criticValues.append(value)
         if self.isContinuous:
             action_distribution = Normal(*action)
-            sampled_action = action_distribution.rsample()
+            sampled_action = action_distribution.sample()
         else:
             action_distribution = Categorical(logits=action)
             sampled_action = action_distribution.sample()  #.item()
@@ -49,13 +49,12 @@ class ActorCritic(PolicyGradients):
         #  dtype=torch.float32, device=self.device)
         logProbs = torch.stack(self.logProbs)
         criticValues = torch.stack(self.criticValues)
-        logProbs[logProbs != logProbs] = 0  # replace all nans with 0s
+        logProbs[logProbs != logProbs] = 1  # replace all nans
         # critic update
         valueGrad = (criticValues - self.trainRewards).mean()
         valueGrad.backward(retain_graph=True)
         # actor update
         r = self.trainRewards - criticValues.detach()  # advantage  self.trainRewards-criticValues
-        # verr = criticValues - self.trainRewards//200
         grad = -(logProbs * r).mean()  #-(value * verr).mean()
         grad.backward()
         rewardMean = self.trainRewards.mean().item()
@@ -78,4 +77,4 @@ class ActorCritic(PolicyGradients):
             self.clearLSTMState()
 
     def __str__(self):
-        return f"AC_h{super.__str__(self)[4:]}"
+        return f"AC_h{super().__str__()[4:]}"

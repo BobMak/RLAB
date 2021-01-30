@@ -39,11 +39,11 @@ def trainMountainCarPG(policy, env, batch_size=5000, epochs=10):
                     # idx_max = min(len(rewards) - 1, i + window)
                     # expRewrads.append(torch.as_tensor([sum(rewards[idx_min:idx_max])],
                     #                                   dtype=torch.float32,
-                    #                                   device=policy.device))
+                    #                                   device=model.device))
                     # reward to go
                     # expRewrads.append(torch.as_tensor([sum(rewards[i:])],
                     #                                   dtype=torch.float32,
-                    #                                   device=policy.device))
+                    #                                   device=model.device))
                     rewards = (rewards - np.mean(rewards))/(np.std(rewards)+1)
                     expRewrads = torch.as_tensor(rewards,
                                                  dtype=torch.float32,
@@ -51,7 +51,7 @@ def trainMountainCarPG(policy, env, batch_size=5000, epochs=10):
                     # reward sum
                     # expRewrads.append(torch.as_tensor([sum(rewards)],
                     #                                   dtype=torch.float32,
-                    #                                   device=policy.device))
+                    #                                   device=model.device))
                 policy.saveEpisode(states, actions, expRewrads)
                 states = []
                 actions = []
@@ -144,7 +144,7 @@ if __name__ == "__main__":
     else:
         output_size = env.action_space.n
     layers_number = 3
-    # policy = PolicyOptimization.PolicyGradients(input_size,
+    # model = PolicyOptimization.PolicyGradients(input_size,
     #                                             hidden_size,
     #                                             output_size,
     #                                             isContinuous=is_continuous,

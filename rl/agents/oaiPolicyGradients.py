@@ -29,7 +29,7 @@ def train(env_name='CartPole-v0', hidden_sizes=[32], lr=1e-2,
     obs_dim = env.observation_space.shape[0]
     n_acts = env.action_space.n
 
-    # make core of policy network
+    # make core of model network
     logits_net = mlp(sizes=[obs_dim]+hidden_sizes+[n_acts])
 
     # make function to compute action distribution
@@ -37,11 +37,11 @@ def train(env_name='CartPole-v0', hidden_sizes=[32], lr=1e-2,
         logits = logits_net(obs)
         return Categorical(logits=logits)
 
-    # make action selection function (outputs int actions, sampled from policy)
+    # make action selection function (outputs int actions, sampled from model)
     def get_action(obs):
         return get_policy(obs).sample().item()
 
-    # make loss function whose gradient, for the right data, is policy gradient
+    # make loss function whose gradient, for the right data, is model gradient
     def compute_loss(obs, act, weights):
         logp = get_policy(obs).log_prob(act)
         return -(logp * weights).mean()
@@ -49,12 +49,12 @@ def train(env_name='CartPole-v0', hidden_sizes=[32], lr=1e-2,
     # make optimizer
     optimizer = Adam(logits_net.parameters(), lr=lr)
 
-    # for training policy
+    # for training model
     def train_one_epoch():
         # make some empty lists for logging.
         batch_obs = []          # for observations
         batch_acts = []         # for actions
-        batch_weights = []      # for R(tau) weighting in policy gradient
+        batch_weights = []      # for R(tau) weighting in model gradient
         batch_rets = []         # for measuring episode returns
         batch_lens = []         # for measuring episode lengths
 
@@ -66,7 +66,7 @@ def train(env_name='CartPole-v0', hidden_sizes=[32], lr=1e-2,
         # render first episode of each epoch
         finished_rendering_this_epoch = False
 
-        # collect experience by acting in the environment with current policy
+        # collect experience by acting in the environment with current model
         while True:
 
             # rendering
@@ -103,7 +103,7 @@ def train(env_name='CartPole-v0', hidden_sizes=[32], lr=1e-2,
                 if len(batch_obs) > batch_size:
                     break
 
-        # take a single policy gradient update step
+        # take a single model gradient update step
         optimizer.zero_grad()
         batch_loss = compute_loss(obs=torch.as_tensor(batch_obs, dtype=torch.float32),
                                   act=torch.as_tensor(batch_acts, dtype=torch.int32),
@@ -127,5 +127,5 @@ if __name__ == '__main__':
     parser.add_argument('--render', action='store_true')
     parser.add_argument('--lr', type=float, default=1e-2)
     args = parser.parse_args()
-    print('\nUsing simplest formulation of policy gradient.\n')
+    print('\nUsing simplest formulation of model gradient.\n')
     train(env_name=args.env_name, render=args.render, lr=args.lr)

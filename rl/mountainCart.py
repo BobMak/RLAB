@@ -7,13 +7,14 @@ from utils.EnvHelper import EnvHelper
 
 
 if __name__ == "__main__":
-    use_cached = False
+    use_cached = True
     is_continuous = True
     use_lstm = False
-    number_of_layers = 6
-    hidden_size = 32
+    number_of_layers = 5
+    hidden_size = 64
     batch_size = 5000
-    epochs = 50
+    batch_is_episode = False
+    epochs = 25
     use_wandb = True
 
     if is_continuous:
@@ -21,6 +22,9 @@ if __name__ == "__main__":
     else:
         env = gym.make("MountainCar-v0")
     env.reset()
+
+    if use_wandb:
+        wandb.init()
 
     print("action sample", env.action_space.sample())
     print("observation sample", env.observation_space.sample())
@@ -32,28 +36,29 @@ if __name__ == "__main__":
     else:
         output_size = env.action_space.n
 
-    # policy = PolicyOptimization.PolicyGradients(input_size,
+    # model = PolicyOptimization.PolicyGradients(input_size,
     #                                             hidden_size,
     #                                             output_size,
     #                                             isContinuous=is_continuous,
     #                                             useLSTM=use_lstm,
-    #                                             nLayers=5)
+    #                                             nLayers=number_of_layers,
+    #                                             usewandb=use_wandb)
     policy = ActorCritic.ActorCritic(input_size,
                                      hidden_size,
                                      output_size,
                                      isContinuous=is_continuous,
                                      useLSTM=use_lstm,
-                                     nLayers=number_of_layers)
+                                     nLayers=number_of_layers,
+                                     usewandb=use_wandb)
     if use_cached:
-        policy = load_model(policy)
-        envHelper = EnvHelper(policy, env)
+        policy.load("cachedModels")
+        envHelper = EnvHelper(policy, env, batch_is_episode=batch_is_episode)
     else:
         if use_wandb:
-            wandb.init()
-            wandb.watch(policy.policy, log="all")
+            wandb.watch(policy.model, log="all")
         envHelper = EnvHelper(policy, env, batch_size=batch_size, epochs=epochs, normalize=False)
         envHelper.trainPolicy()
-        save_model(policy)
+        policy.save("cachedModels")
 
     envHelper.evalueatePolicy()
     env.close()

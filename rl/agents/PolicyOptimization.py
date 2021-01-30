@@ -10,66 +10,30 @@ from torch.distributions.categorical import Categorical
 from torch.distributions.normal import Normal
 
 from utils.Modules import NormalOutput
+from agents.Agent import Agent
 
 
-class PolicyGradients(nn.Module):
-    def __init__(self, inp, hid, out,
-                 isContinuous=False, useLSTM=False, nLayers=1, usewandb=False):
-        super(PolicyGradients, self).__init__()
-        self.hid          = hid
-        self.nls          = nLayers
+class PolicyGradients(Agent):
+    def __init__(self, inp, hid, out, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False):
+        super(PolicyGradients, self).__init__(inp, hid, out, useLSTM, nLayers, usewandb)
         self.isContinuous = isContinuous
-        self.useLSTM      = useLSTM
-        self.hidden       = hid
-        self.device       = torch.device("cpu")  # cpu
-        policy = []
-        policy.append(nn.Linear(inp, hid))
-        policy.append(nn.ReLU())
-        if useLSTM:
-            policy.append(nn.LSTM(hid, hid))
-            policy.append(nn.ReLU())
-            self.hiddenLSTM = (torch.randn(1, 1, hid),
-                               torch.randn(1, 1, hid))
-            self.hiddenIdx = len(policy)-2
-        else:
-            policy.append(nn.Linear(hid, hid))
-            policy.append(nn.ReLU())
-
-        for n in range(nLayers):
-            policy.append(nn.Linear(hid, hid))
-            policy.append(nn.ReLU())
-
+        # replace the actor layer with an actorCritic layer
         if isContinuous:
-            policy.append(NormalOutput(hid, out, activation=nn.Sigmoid))
+            policy = [*self.model[:-1]]
+            self.model = nn.Sequential(
+                *policy,
+                NormalOutput(hid, out, activation=nn.Identity)
+            ).to(self.device)
         else:
-            policy.append(nn.Linear(hid, out))
-            # policy.append(nn.Sigmoid())
-        self.policy = nn.Sequential(*policy).to(self.device)
+            policy = [*self.model[:-1]]
+            self.model = nn.Sequential(
+                *policy,
+                NormalOutput(hid, out, activation=nn.Identity)
+            ).to(self.device)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-2)
 
-        learning_rate = 1e-2
-        self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=learning_rate)
-
-        self.trainStates  = torch.tensor([]).to(self.device)
-        self.trainActions = torch.tensor([]).to(self.device)
-        self.trainRewards = torch.tensor([]).to(self.device)
         self.logProbs     = []
         self.avgRewards   = 0
-        self.usewandb    = usewandb
-
-    def forward(self, x):
-        if self.useLSTM:
-            out = x
-            for layer in self.policy[:self.hiddenIdx]:
-                out = layer(out)
-            # LSTM requires hid vector from the previous pass
-            # ensure correct format for the backward pass
-            out = out.view(out.numel() // self.hidden, 1, -1)
-            out, self.hiddenLSTM = self.policy[self.hiddenIdx](out, self.hiddenLSTM)
-            for layer in self.policy[self.hiddenIdx+1:]:
-                out = layer(out)
-            return out
-        else:
-            return self.policy(x)
 
     def getAction(self, x):
         action = self.forward(x)
@@ -85,15 +49,6 @@ class PolicyGradients(nn.Module):
         if not self.isContinuous:
             sampled_action = sampled_action.item()
         return sampled_action
-
-    # Save episode's rewards and state-actions
-    def saveEpisode(self, states, actions, rewards):
-        self.trainStates = torch.cat([self.trainStates,
-                                      torch.as_tensor(states, dtype=torch.float32, device=self.device)])
-        self.trainActions= torch.cat([self.trainActions,
-                                      torch.as_tensor(actions, dtype=torch.float32, device=self.device)])
-        self.trainRewards= torch.cat([self.trainRewards,
-                                     torch.as_tensor(rewards, dtype=torch.float32, device=self.device)])
 
     # gradient of one trajectory
     def backprop(self):
@@ -116,33 +71,7 @@ class PolicyGradients(nn.Module):
         if self.useLSTM:
             self.clearLSTMState()
 
-    def clearLSTMState(self):
-        self.hiddenLSTM = (torch.randn(1, 1, self.hidden),
-                           torch.randn(1, 1, self.hidden))
-
-    def setInputModule(self, module):
-        withInput = [module]
-        withInput.extend(self.policy)
-        self.hiddenIdx += 1
-        self.policy = nn.Sequential(*withInput).to(self.device)
-        learning_rate = 1e-2
-        self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=learning_rate)
-
-    def save(self, path="."):
-        if self.usewandb:
-            wandb.save(path + "/" + str(self))
-        else:
-            torch.save(self.policy, path + "/" + str(self))
-
-    def load(self, path="."):
-        if self.usewandb:
-            wandb.restore(path + "/" + str(self))
-        else:
-            self.policy = torch.load(path + "/" + str(self))
-
     def __str__(self):
-        return f"PG_h{self.hid}l{self.nls}_" + ("C" if self.isContinuous else "D") \
-                                             + ("L" if self.useLSTM else "") \
-                                             + ("w" if self.usewandb else "")
+        return f"PG_h + {super().__str__()}" + ("C" if self.isContinuous else "D")
 
 

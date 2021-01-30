@@ -19,11 +19,12 @@ class EnvNormalizer:
 
 
 class EnvHelper:
-    def __init__(self, policy, env, batch_size=5000, epochs=10, normalize=False):
+    def __init__(self, policy, env, batch_size=5000, epochs=10, normalize=False, batch_is_episode=False):
         self.policy = policy
         self.epochs = epochs
         self.env = env
         self.batch_size = batch_size
+        self.batch_is_episode = batch_is_episode
         if normalize:
             self.inputHandler = EnvNormalizer(self.env)
         else:
@@ -112,7 +113,7 @@ class EnvHelper:
                     obs_raw = self.inputHandler(self.env.reset())
                     obs = torch.from_numpy(obs_raw)
                     obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
-                    if sa_count > self.batch_size:
+                    if sa_count > self.batch_size or self.batch_is_episode:
                         break
             self.policy.backprop()
         return self.policy
@@ -127,7 +128,7 @@ class EnvHelper:
             done = False
             while not done:
                 self.env.render()
-                action = self.policy.getAction(obs)  # .cpu().numpy()
+                action = self.policy.getAction(obs)  #.detach()  # .cpu().numpy()
                 obs, reward, done, info = self.env.step(action)
                 obs = np.array(self.inputHandler(obs), dtype=float)
                 obs = torch.from_numpy(obs)
