@@ -32,7 +32,7 @@ class ActorCritic(PolicyGradients):
         return sampled_action
 
     # gradient of one trajectory
-    def backprop(self):
+    def backward(self):
         self.policy.zero_grad()
         action = self.forward(self.trainStates)
 

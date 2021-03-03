@@ -6,20 +6,17 @@ for continuous or discreet action spaces
 import wandb
 import torch.nn as nn
 import torch.optim
-from torch.distributions.categorical import Categorical
-from torch.distributions.normal import Normal
-
-from utils.Modules import NormalOutput
 
 
 class Agent:
     def __init__(self, inp, hid, out,
-                 useLSTM=False, nLayers=1, usewandb=False):
-        self.hid          = hid
-        self.nls          = nLayers
-        self.useLSTM      = useLSTM
-        self.hidden       = hid
-        self.device       = torch.device("cpu")  # cpu
+                 useLSTM=False, nLayers=1, usewandb=False, device="cpu"):
+        self.hid      = hid
+        self.nls      = nLayers
+        self.useLSTM  = useLSTM
+        self.hidden   = hid
+        self.device   = torch.device(device)  # cpu
+        self.usewandb = usewandb
         policy = []
         policy.append(nn.Linear(inp, hid))
         policy.append(nn.ReLU())
@@ -28,12 +25,12 @@ class Agent:
             policy.append(nn.ReLU())
             self.hiddenLSTM = (torch.randn(1, 1, hid),
                                torch.randn(1, 1, hid))
-            self.hiddenIdx = len(policy)-2
+            self.lstmIdx = len(policy) - 2
         else:
             policy.append(nn.Linear(hid, hid))
             policy.append(nn.ReLU())
 
-        for n in range(nLayers):
+        for n in range(nLayers-1):
             policy.append(nn.Linear(hid, hid))
             policy.append(nn.ReLU())
 
@@ -46,18 +43,17 @@ class Agent:
         self.trainStates  = torch.tensor([]).to(self.device)
         self.trainActions = torch.tensor([]).to(self.device)
         self.trainRewards = torch.tensor([]).to(self.device)
-        self.usewandb    = usewandb
 
     def forward(self, x):
         if self.useLSTM:
             out = x
-            for layer in self.model[:self.hiddenIdx]:
+            for layer in self.model[:self.lstmIdx]:
                 out = layer(out)
             # LSTM requires hid vector from the previous pass
             # ensure correct format for the backward pass
             out = out.view(out.numel() // self.hidden, 1, -1)
-            out, self.hiddenLSTM = self.model[self.hiddenIdx](out, self.hiddenLSTM)
-            for layer in self.model[self.hiddenIdx + 1:]:
+            out, self.hiddenLSTM = self.model[self.lstmIdx](out, self.hiddenLSTM)
+            for layer in self.model[self.lstmIdx + 1:]:
                 out = layer(out)
             return out
         else:
@@ -76,7 +72,7 @@ class Agent:
                                      torch.as_tensor(rewards, dtype=torch.float32, device=self.device)])
 
     # gradient of one trajectory
-    def backprop(self):
+    def backward(self):
         raise NotImplemented()
 
     def clearLSTMState(self):
@@ -86,7 +82,7 @@ class Agent:
     def setInputModule(self, module):
         withInput = [module]
         withInput.extend(self.model)
-        self.hiddenIdx += 1
+        self.lstmIdx += 1
         self.model = nn.Sequential(*withInput).to(self.device)
         learning_rate = 1e-2
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)

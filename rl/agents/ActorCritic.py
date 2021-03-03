@@ -45,7 +45,7 @@ class ActorCritic(PolicyGradients):
         return sampled_action
 
     # gradient of one trajectory
-    def backprop(self):
+    def backward(self):
         #  dtype=torch.float32, device=self.device)
         logProbs = torch.stack(self.logProbs)
         criticValues = torch.stack(self.criticValues)

@@ -42,7 +42,7 @@ class DQLearn(Agent):
     def getAction(self, obs):
         return self.forward(obs)
 
-    def backprop(self):
+    def backward(self):
         pred = torch.stack(self.expRewards)
         real = self.trainRewards
         # print(pred.dim(), real.dim())

@@ -61,7 +61,7 @@ def trainMountainCarPG(policy, env, batch_size=5000, epochs=10):
                 obs = torch.as_tensor(obs, dtype=torch.float32, device=policy.device)
                 if sa_count > batch_size:
                     break
-        policy.backprop()
+        policy.backward()
     return policy
 
 

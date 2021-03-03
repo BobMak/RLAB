@@ -51,7 +51,7 @@ class PolicyGradients(Agent):
         return sampled_action
 
     # gradient of one trajectory
-    def backprop(self):
+    def backward(self):
         logProbs = torch.stack(self.logProbs)
         # Compute an advantage
         r = self.trainRewards #- self.avgRewards

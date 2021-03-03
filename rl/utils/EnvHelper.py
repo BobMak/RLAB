@@ -115,7 +115,7 @@ class EnvHelper:
                     obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
                     if sa_count > self.batch_size or self.batch_is_episode:
                         break
-            self.policy.backprop()
+            self.policy.backward()
         return self.policy
 
     def evalueatePolicy(self):
