@@ -19,7 +19,7 @@ class EnvNormalizer:
 
 
 class EnvHelper:
-    def __init__(self, policy, env, batch_size=5000, epochs=10, normalize=False, batch_is_episode=False):
+    def __init__(self, policy, env, batch_size=5000, epochs=10, normalize=False, batch_is_episode=False, success_reward=None):
         self.policy = policy
         self.epochs = epochs
         self.env = env
@@ -33,6 +33,7 @@ class EnvHelper:
         self._window = 50     # sliding window reward assignment
         self._gamma  = 0.995  # discounted future reward gamma 
         self.setComputeRewardsStrategy("rewardToGoDiscounted")
+        self.success_reward = success_reward
 
     def computeRewards(self, rewards) -> [torch.Tensor]:
         return None
@@ -106,13 +107,16 @@ class EnvHelper:
                 rewards.append(reward)
                 if done:
                     self.policy.saveEpisode(states, actions, self.computeRewards(rewards))
-                    states = []
-                    actions = []
-                    rewards = []
                     obs_raw = self.inputHandler(self.env.reset())
                     obs = torch.from_numpy(obs_raw)
                     obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
+                    states  = []
+                    actions = []
+                    rewards = []
                     if sa_count > self.batch_size or self.batch_is_episode:
+                        if self.success_reward and self.success_reward <= sum(rewards):
+                            print(f"policy has reached optimal performance with avg score {sum(rewards)}")
+                            return self.policy
                         break
             self.policy.backward()
         return self.policy

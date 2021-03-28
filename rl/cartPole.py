@@ -13,7 +13,7 @@ from utils.EnvHelper import EnvHelper
 if __name__ == "__main__":
     use_cached = False
     use_lstm = False
-    use_wandb = True
+    use_wandb = False
 
     env = gym.make("CartPole-v0")
     env.reset()
@@ -37,7 +37,7 @@ if __name__ == "__main__":
                             output_size,
                             isContinuous=False,
                             useLSTM=use_lstm,
-                            nLayers=5,
+                            nLayers=2,
                             usewandb=use_wandb)
     # model = ActorCritic(input_size,
     #                      hidden_size,
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     else:
         if use_wandb:
             wandb.watch(policy.model, log="all")
-        envHelper = EnvHelper(policy, env, batch_size=5000, epochs=10, normalize=False)
+        envHelper = EnvHelper(policy, env, batch_size=3000, epochs=50, normalize=False, success_reward=200)
         envHelper.trainPolicy()
         policy.save("cachedModels")
 

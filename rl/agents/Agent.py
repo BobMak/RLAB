@@ -3,6 +3,7 @@ Policy Gradients implementation
 for continuous or discreet action spaces
 
 """
+import os
 import wandb
 import torch.nn as nn
 import torch.optim
@@ -88,6 +89,8 @@ class Agent:
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
 
     def save(self, path="."):
+        if not os.path.exists(path):
+            os.mkdir(path)
         if self.usewandb:
             wandb.save(path + "/" + str(self))
         else:

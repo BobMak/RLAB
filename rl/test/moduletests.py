@@ -53,6 +53,7 @@ class TestLinear(unittest.TestCase):
         res = self.model(torch.tensor([1], dtype=torch.float32))
         self.assertAlmostEqual(1.5, float(self.model(torch.tensor([1], dtype=torch.float32))), delta=.2)
 
+
 class TestNormalModule(unittest.TestCase):
     def setUp(self):
         self.normal = NormalOutput(1, 1)

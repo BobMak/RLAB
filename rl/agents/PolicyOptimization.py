@@ -17,18 +17,18 @@ class PolicyGradients(Agent):
     def __init__(self, inp, hid, out, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False):
         super(PolicyGradients, self).__init__(inp, hid, out, useLSTM, nLayers, usewandb)
         self.isContinuous = isContinuous
-        # replace the actor layer with an actorCritic layer
+        # replace the discreet output with a continuous Gaussian output
         if isContinuous:
             policy = [*self.model[:-1]]
             self.model = nn.Sequential(
                 *policy,
-                NormalOutput(hid, out, activation=nn.Identity)
+                NormalOutput(hid, out, activation=nn.Tanh)
             ).to(self.device)
         else:
-            policy = [*self.model[:-1]]
+            policy = [*self.model]
             self.model = nn.Sequential(
                 *policy,
-                NormalOutput(hid, out, activation=nn.Identity)
+                # nn.Sigmoid()
             ).to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-2)
 
@@ -52,6 +52,7 @@ class PolicyGradients(Agent):
 
     # gradient of one trajectory
     def backward(self):
+        self.optimizer.zero_grad()
         logProbs = torch.stack(self.logProbs)
         # Compute an advantage
         r = self.trainRewards #- self.avgRewards
@@ -60,8 +61,7 @@ class PolicyGradients(Agent):
         grad = -(logProbs * r).mean()
         grad.backward()
         self.optimizer.step()
-        self.optimizer.zero_grad()
-        print("train reward", self.trainRewards.mean(), "grad", grad, "advtg", r)
+        print("train reward", self.trainRewards.mean(), "grad", grad, "advtg", r.mean())
         self.avgRewards = self.trainRewards.mean()
         # Reset episode buffer
         self.trainRewards = torch.tensor([]).to(self.device)
@@ -72,6 +72,6 @@ class PolicyGradients(Agent):
             self.clearLSTMState()
 
     def __str__(self):
-        return f"PG_h + {super().__str__()}" + ("C" if self.isContinuous else "D")
+        return f"PG_h{super().__str__()}" + ("C" if self.isContinuous else "D")
 
 
