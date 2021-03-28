@@ -7,14 +7,14 @@ from utils.EnvHelper import EnvHelper
 
 
 if __name__ == "__main__":
-    use_cached = True
+    use_cached = False
     is_continuous = True
     use_lstm = False
     number_of_layers = 5
     hidden_size = 64
-    batch_size = 5000
+    batch_size = 500
     batch_is_episode = False
-    epochs = 25
+    epochs = 100
     use_wandb = True
 
     if is_continuous:

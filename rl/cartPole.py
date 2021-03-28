@@ -32,25 +32,25 @@ if __name__ == "__main__":
     # else:
     output_size = env.action_space.n
 
-    # policy = PolicyGradients(input_size,
-    #                         hidden_size,
-    #                         output_size,
-    #                         isContinuous=False,
-    #                         useLSTM=use_lstm,
-    #                         nLayers=5,
-    #                         usewandb=use_wandb)
+    policy = PolicyGradients(input_size,
+                            hidden_size,
+                            output_size,
+                            isContinuous=False,
+                            useLSTM=use_lstm,
+                            nLayers=5,
+                            usewandb=use_wandb)
     # model = ActorCritic(input_size,
     #                      hidden_size,
     #                      output_size,
     #                      isContinuous=is_continuous,
     #                      useLSTM=use_lstm,
     #                      nLayers=2)
-    policy = DQLearn(input_size,
-                     hidden_size,
-                     output_size,
-                     useLSTM=use_lstm,
-                     nLayers=5,
-                     usewandb=use_wandb)
+    # policy = DQLearn(input_size,
+    #                  hidden_size,
+    #                  output_size,
+    #                  useLSTM=use_lstm,
+    #                  nLayers=5,
+    #                  usewandb=use_wandb)
     if use_cached:
         policy.load("cachedModels")
         envHelper = EnvHelper(policy, env)

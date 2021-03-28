@@ -104,7 +104,6 @@ class EnvHelper:
                 obs = torch.from_numpy(obs)
                 obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
                 rewards.append(reward)
-
                 if done:
                     self.policy.saveEpisode(states, actions, self.computeRewards(rewards))
                     states = []
