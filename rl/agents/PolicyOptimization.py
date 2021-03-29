@@ -39,7 +39,7 @@ class PolicyGradients(Agent):
             nn.Linear(hid, 1),
             nn.Tanh()
         )
-        self.p_optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-2)
+        self.p_optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
         self.c_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-2)
 
         self.log_probs     = []
