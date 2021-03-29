@@ -32,8 +32,8 @@ class PolicyGradients(Agent):
             ).to(self.device)
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-2)
 
-        self.logProbs     = []
-        self.avgRewards   = 0
+        self.log_probs     = []
+        self.avg_rewards   = 0
 
     def getAction(self, x):
         action = self.forward(x)
@@ -45,33 +45,41 @@ class PolicyGradients(Agent):
             sampled_action = action_distribution.sample()  # .item()
         # save the log likelihood of taking that action for backprop
         logProb = action_distribution.log_prob(sampled_action)
-        self.logProbs.append(logProb)
+        self.log_probs.append(logProb)
         if not self.isContinuous:
             sampled_action = sampled_action.item()
         return sampled_action
 
+    def getActionDistribution(self, x):
+        distribution_params = self.forward(x)
+        if self.isContinuous:
+            action_distribution = Normal(*distribution_params)
+        else:
+            action_distribution = Categorical(logits=distribution_params)
+        return action_distribution
+
     # gradient of one trajectory
     def backward(self):
         self.optimizer.zero_grad()
-        logProbs = torch.stack(self.logProbs)
+        logProbs = torch.stack(self.log_probs)
         # Compute an advantage
-        r = self.trainRewards #- self.avgRewards
-        if self.usewandb:
+        r = self.train_rewards #- self.avgRewards
+        if self.use_wandb:
             wandb.log ({ "awgReward": r.mean() } )
         grad = -(logProbs * r).mean()
         grad.backward()
         self.optimizer.step()
-        print("train reward", self.trainRewards.mean(), "grad", grad, "advtg", r.mean())
-        self.avgRewards = self.trainRewards.mean()
+        print("train reward", self.train_rewards.mean(), "grad", grad, "advtg", r.mean())
+        self.avg_rewards = self.train_rewards.mean()
         # Reset episode buffer
-        self.trainRewards = torch.tensor([]).to(self.device)
+        self.train_rewards = torch.tensor([]).to(self.device)
         self.trainActions = torch.tensor([]).to(self.device)
         self.trainStates  = torch.tensor([]).to(self.device)
-        self.logProbs     = []
-        if self.useLSTM:
+        self.log_probs     = []
+        if self.use_lstm:
             self.clearLSTMState()
 
     def __str__(self):
-        return f"PG_h{super().__str__()}" + ("C" if self.isContinuous else "D")
+        return f"PG_{super().__str__()}" + ("C" if self.isContinuous else "D")
 
 

@@ -51,7 +51,7 @@ class DQLearn(Agent):
         #self.criterion(pred, real)
         self.optimizer.step()
         self.optimizer.zero_grad()
-        if self.usewandb:
+        if self.use_wandb:
             wandb.log ({ "awgReward": real.mean() } )
         print("train reward", self.trainRewards.mean())
         # self.avgRewards = self.trainRewards.mean()
@@ -62,7 +62,7 @@ class DQLearn(Agent):
             self.trainRewards      = torch.tensor([]).to(self.device)
             self.trainStateActions = []
             self.expRewards        = []
-        if self.useLSTM:
+        if self.use_lstm:
             self.clearLSTMState()
 
     def __str__(self):

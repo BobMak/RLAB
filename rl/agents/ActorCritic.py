@@ -64,7 +64,7 @@ class ActorCritic(PolicyGradients):
         self.optimizer.zero_grad()
         criticMean = criticValues.mean().item()
         print("avg estimated reward", criticMean, "grad", valueGrad.item())
-        if self.usewandb:
+        if self.use_wandb:
             wandb.log({"awgReward": rewardMean})
             wandb.log({"awgCritic": criticMean})
         # Reset episode buffer
@@ -73,7 +73,7 @@ class ActorCritic(PolicyGradients):
         self.trainStates  = torch.tensor([]).to(self.device)
         self.criticValues = []
         self.logProbs     = []
-        if self.useLSTM:
+        if self.use_lstm:
             self.clearLSTMState()
 
     def __str__(self):

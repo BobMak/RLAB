@@ -55,7 +55,7 @@ class ActorCritic(PolicyGradients):
         self.trainRewards = torch.tensor([]).to(self.device)
         self.trainActions = torch.tensor([]).to(self.device)
         self.trainStates = torch.tensor([]).to(self.device)
-        if self.useLSTM:
+        if self.use_lstm:
             self.clearLSTMState()
 
     def __str__(self):
