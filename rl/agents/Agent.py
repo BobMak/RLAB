@@ -39,7 +39,7 @@ class Agent:
         self.model = nn.Sequential(*policy).to(self.device)
 
         learning_rate = 1e-2
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
+        self.p_optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
 
         if env==None:
             self.env = f"env(obs={inp},act={out})"
@@ -97,7 +97,7 @@ class Agent:
         self.lstm_idx += 1
         self.model = nn.Sequential(*withInput).to(self.device)
         learning_rate = 1e-2
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
+        self.p_optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
 
     def save(self, path="."):
         if not os.path.exists(path):

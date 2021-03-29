@@ -49,7 +49,7 @@ class ActorCritic(PolicyGradients):
         grad.backward()
         print("train reward", self.trainRewards.mean(), "grad", grad, "advtg", r)
         self.avgRewards = self.trainRewards.mean()
-        self.optimizer.step()
+        self.p_optimizer.step()
         print("train value", self.criticValues.mean())
         # Reset episode buffer
         self.trainRewards = torch.tensor([]).to(self.device)

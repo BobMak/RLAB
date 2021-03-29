@@ -49,8 +49,8 @@ class DQLearn(Agent):
         grad = ((pred - real)**2).mean()
         grad.backward()
         #self.criterion(pred, real)
-        self.optimizer.step()
-        self.optimizer.zero_grad()
+        self.p_optimizer.step()
+        self.p_optimizer.zero_grad()
         if self.use_wandb:
             wandb.log ({ "awgReward": real.mean() } )
         print("train reward", self.trainRewards.mean())

@@ -15,7 +15,7 @@ if __name__ == "__main__":
     hidden_size = 64
     batch_size = 1000
     batch_is_episode = False
-    epochs = 30
+    epochs = 10
     use_wandb = True
 
     if is_continuous:

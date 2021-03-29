@@ -11,13 +11,12 @@ from agents.PolicyOptimization import PolicyGradients
 
 
 class PPO(PolicyGradients):
-    def __init__(self, inp, hid, out, epsilon=0.01, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None):
+    def __init__(self, inp, hid, out, clip_ratio=0.2, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None):
         super().__init__(inp, hid, out, isContinuous, useLSTM, nLayers, usewandb, env)
-        self.epsilon = epsilon
-        self.oldLogProbs = []
+        self.clip_ratio = clip_ratio
 
     def getAction(self, x):
-        action = self.forward(x)
+        action = self.model.forward(x)
         if self.isContinuous:
             action_distribution = Normal(*action)
             sampled_action = action_distribution.sample()
@@ -33,30 +32,47 @@ class PPO(PolicyGradients):
 
     # gradient of one trajectory
     def backward(self):
-        self.optimizer.zero_grad()
         # Compute an advantage
-        r = self.train_rewards - self.avg_rewards
+        pred_values = self.getExpectedvalue(self.train_states)
+        r = self.train_rewards - pred_values.detach()
+        r = (r - r.mean()) / (r.std() + 1e-10)
         if self.use_wandb:
             wandb.log({"awgReward": r.mean()})
-        logProbs = torch.stack(self.log_probs)
-        # clip it
-        grad = -(logProbs * r).mean()
-        if r.mean() > 0:
-            grad = grad.clamp(max=1 + self.epsilon)
-        else:
-            grad = grad.clamp(min=1 - self.epsilon)
-        grad.backward()
-        self.optimizer.step()
-        print("train reward", self.train_rewards.mean(), "grad", grad, "advtg", r.mean())
+        old_log_probs = torch.stack(self.log_probs)
+        # update actor
+        for _ in range(80):
+            self.p_optimizer.zero_grad()
+            # compute log_probs after the update
+            action_distributions = self.getActionDistribution(self.train_states)
+            log_probs = action_distributions.log_prob(self.train_actions)
+            ratio = torch.exp(log_probs - old_log_probs)
+            # clip it
+            surr1 = ratio.clamp(1 - self.clip_ratio, 1 + self.clip_ratio) * r
+            surr2 = ratio * r
+            grad = torch.min( surr1, surr2 )
+            grad = -(grad).mean()
+            # print(grad)
+            grad.backward(retain_graph=True)
+            self.p_optimizer.step()
+        # update critic
+        for _ in range(80):
+            self.c_optimizer.zero_grad()
+            pred_values = self.getExpectedvalue(self.train_states)
+            critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards)
+            critic_loss.backward(retain_graph=True)
+            self.c_optimizer.step()
+
+        pred_values = self.getExpectedvalue(self.train_states)
+        critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards.flatten())
+        print("\ntrain reward", self.train_rewards.mean(), "advtg", r.mean(), "critic loss", critic_loss)
         self.avg_rewards = self.train_rewards.mean()
         # Reset episode buffer
         self.train_rewards = torch.tensor([]).to(self.device)
-        self.trainActions = torch.tensor([]).to(self.device)
-        self.trainStates  = torch.tensor([]).to(self.device)
-        self.oldLogProbs = []
+        self.train_actions = torch.tensor([]).to(self.device)
+        self.train_states  = torch.tensor([]).to(self.device)
         self.log_probs    = []
         if self.use_lstm:
             self.clearLSTMState()
 
     def __str__(self):
-        return f"PPO_{super().__str__()[4:]}"
+        return f"PPO_{super().__str__()[3:]}"

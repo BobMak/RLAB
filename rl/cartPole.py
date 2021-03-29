@@ -68,7 +68,7 @@ if __name__ == "__main__":
     else:
         if use_wandb:
             wandb.watch(policy.model, log="all")
-        envHelper = EnvHelper(policy, env, batch_size=3000, epochs=50, normalize=False, success_reward=200)
+        envHelper = EnvHelper(policy, env, batch_size=500, epochs=30, normalize=False, success_reward=200)
         envHelper.trainPolicy()
         policy.save("cachedModels")
 
