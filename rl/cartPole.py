@@ -5,6 +5,7 @@ import wandb
 
 from agents.ActorCritic import ActorCritic
 from agents.PolicyOptimization import PolicyGradients
+from agents.PPO import PPO
 from agents.DQLearn import DQLearn
 from utils.Cache import load_model, save_model
 from utils.EnvHelper import EnvHelper
@@ -14,8 +15,9 @@ if __name__ == "__main__":
     use_cached = False
     use_lstm = False
     use_wandb = False
+    env_name = "CartPole-v0"
 
-    env = gym.make("CartPole-v0")
+    env = gym.make(env_name)
     env.reset()
 
     if use_wandb:
@@ -32,13 +34,21 @@ if __name__ == "__main__":
     # else:
     output_size = env.action_space.n
 
-    policy = PolicyGradients(input_size,
-                            hidden_size,
-                            output_size,
-                            isContinuous=False,
-                            useLSTM=use_lstm,
-                            nLayers=2,
-                            usewandb=use_wandb)
+    # policy = PolicyGradients(input_size,
+    #                         hidden_size,
+    #                         output_size,
+    #                         isContinuous=False,
+    #                         useLSTM=use_lstm,
+    #                         nLayers=2,
+    #                         usewandb=use_wandb)
+
+    policy = PPO(input_size,
+                hidden_size,
+                output_size,
+                isContinuous=False,
+                useLSTM=use_lstm,
+                nLayers=2,
+                usewandb=use_wandb)
     # model = ActorCritic(input_size,
     #                      hidden_size,
     #                      output_size,
@@ -51,6 +61,7 @@ if __name__ == "__main__":
     #                  useLSTM=use_lstm,
     #                  nLayers=5,
     #                  usewandb=use_wandb)
+    policy.setEnv(env_name)
     if use_cached:
         policy.load("cachedModels")
         envHelper = EnvHelper(policy, env)

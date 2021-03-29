@@ -14,8 +14,8 @@ from agents.Agent import Agent
 
 
 class PolicyGradients(Agent):
-    def __init__(self, inp, hid, out, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False):
-        super(PolicyGradients, self).__init__(inp, hid, out, useLSTM, nLayers, usewandb)
+    def __init__(self, inp, hid, out, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None):
+        super(PolicyGradients, self).__init__(inp, hid, out, useLSTM, nLayers, usewandb, env)
         self.isContinuous = isContinuous
         # replace the discreet output with a continuous Gaussian output
         if isContinuous:

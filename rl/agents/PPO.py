@@ -9,26 +9,23 @@ from agents.PolicyOptimization import PolicyGradients
 
 
 class PPO(PolicyGradients):
-    def __init__(self, inp, hid, out, epsilon=0.01, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False):
-        super().__init__(inp, hid, out, isContinuous=isContinuous, useLSTM=useLSTM, nLayers=nLayers, usewandb=usewandb)
+    def __init__(self, inp, hid, out, epsilon=0.01, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None):
+        super().__init__(inp, hid, out, isContinuous, useLSTM, nLayers, usewandb, env)
         self.epsilon = epsilon
 
-    def clip(self):
+    # gradient of one trajectory
+    def backward(self):
+        self.optimizer.zero_grad()
         # Compute an advantage
         r = self.trainRewards  # - self.avgRewards
         if self.usewandb:
             wandb.log({"awgReward": r.mean()})
         logProbs = torch.stack(self.logProbs)
         # clip it
-        torch.min( logProbs, torch.clip(logProbs, 1-self.epsilon, 1+self.epsilon) )
         grad = -(logProbs * r).mean()
+        grad = grad.clamp(min=1 - self.epsilon)
         grad.backward()
-
-    # gradient of one trajectory
-    def backward(self):
-
         self.optimizer.step()
-        self.optimizer.zero_grad()
         print("train reward", self.trainRewards.mean(), "grad", grad, "advtg", r)
         self.avgRewards = self.trainRewards.mean()
         # Reset episode buffer
@@ -40,4 +37,4 @@ class PPO(PolicyGradients):
             self.clearLSTMState()
 
     def __str__(self):
-        return f"PPO_h + {super().__str__()[4:]}"
+        return f"PPO_h{super().__str__()[4:]}"

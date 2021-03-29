@@ -11,12 +11,12 @@ import torch.optim
 
 class Agent:
     def __init__(self, inp, hid, out,
-                 useLSTM=False, nLayers=1, usewandb=False, device="cpu"):
+                 useLSTM=False, nLayers=1, usewandb=False, env=None):
         self.hid      = hid
         self.nls      = nLayers
         self.useLSTM  = useLSTM
         self.hidden   = hid
-        self.device   = torch.device(device)  # cpu
+        self.device   = torch.device("cpu")  # cpu
         self.usewandb = usewandb
         policy = []
         policy.append(nn.Linear(inp, hid))
@@ -41,6 +41,11 @@ class Agent:
         learning_rate = 1e-2
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
 
+        if env==None:
+            self.env = f"env(obs={inp},act={out})"
+        else:
+            self.env = env
+
         self.trainStates  = torch.tensor([]).to(self.device)
         self.trainActions = torch.tensor([]).to(self.device)
         self.trainRewards = torch.tensor([]).to(self.device)
@@ -59,6 +64,9 @@ class Agent:
             return out
         else:
             return self.model(x)
+
+    def setEnv(self, env):
+        self.env = env
 
     def getAction(self, x):
         raise NotImplemented()
