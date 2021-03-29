@@ -47,8 +47,8 @@ class Agent:
             self.env = env
 
         self.train_states  = torch.tensor([]).to(self.device)
-        self.train_actions = torch.tensor([]).to(self.device)
         self.train_rewards = torch.tensor([]).to(self.device)
+        self.train_actions = []
 
     def forward(self, x):
         if self.use_lstm:
@@ -75,11 +75,9 @@ class Agent:
         raise NotImplemented()
 
     # Save episode's rewards and state-actions
-    def saveEpisode(self, states, actions, rewards):
+    def saveEpisode(self, states, rewards):
         self.train_states = torch.cat([self.train_states,
                                        torch.as_tensor(states, dtype=torch.float32, device=self.device)])
-        self.train_actions= torch.cat([self.train_actions,
-                                       torch.as_tensor(actions, dtype=torch.float32, device=self.device)])
         self.train_rewards= torch.cat([self.train_rewards,
                                        torch.as_tensor(rewards, dtype=torch.float32, device=self.device)])
 

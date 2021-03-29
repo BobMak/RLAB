@@ -39,23 +39,19 @@ class PolicyGradients(Agent):
             nn.Linear(hid, 1),
             nn.Tanh()
         )
-        self.p_optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
+        self.p_optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-2)
         self.c_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-2)
 
         self.log_probs     = []
         self.avg_rewards   = torch.tensor([0.0])
 
     def getAction(self, x):
-        action = self.forward(x)
-        if self.isContinuous:
-            action_distribution = Normal(*action)
-            sampled_action = action_distribution.sample()
-        else:
-            action_distribution = Categorical(logits=action)
-            sampled_action = action_distribution.sample()  # .item()
+        action_distribution = self.getActionDistribution(x)
+        sampled_action = action_distribution.sample()  # .item()
         # save the log likelihood of taking that action for backprop
         logProb = action_distribution.log_prob(sampled_action)
         self.log_probs.append(logProb)
+        self.train_actions.append(sampled_action)
         if not self.isContinuous:
             sampled_action = sampled_action.item()
         return sampled_action
@@ -69,7 +65,7 @@ class PolicyGradients(Agent):
         return action_distribution
 
     def getExpectedvalue(self, x):
-        action = self.model.forward(x)
+        action = self.forward(x)
         value = self.critic.forward(torch.cat([x, action], dim=1))
         return value
 
@@ -88,8 +84,8 @@ class PolicyGradients(Agent):
         self.avg_rewards = self.train_rewards.mean()
         # Reset episode buffer
         self.train_rewards = torch.tensor([]).to(self.device)
-        self.train_actions = torch.tensor([]).to(self.device)
         self.train_states  = torch.tensor([]).to(self.device)
+        self.train_actions = []
         self.log_probs     = []
         if self.use_lstm:
             self.clearLSTMState()

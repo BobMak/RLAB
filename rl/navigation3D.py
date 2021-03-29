@@ -52,7 +52,7 @@ def trainMountainCarPG(policy, env, batch_size=5000, epochs=10):
                     # expRewrads.append(torch.as_tensor([sum(rewards)],
                     #                                   dtype=torch.float32,
                     #                                   device=model.device))
-                policy.saveEpisode(states, actions, expRewrads)
+                policy.saveEpisode(states, expRewrads)
                 states = []
                 actions = []
                 rewards = []
