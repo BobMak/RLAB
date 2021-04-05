@@ -12,7 +12,7 @@ if __name__ == "__main__":
     is_continuous = True
     use_lstm = False
     number_of_layers = 5
-    hidden_size = 64
+    hidden_size = 128
     batch_size = 1000
     batch_is_episode = False
     epochs = 20

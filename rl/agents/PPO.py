@@ -47,7 +47,7 @@ class PPO(PolicyGradients):
             self.c_optimizer.zero_grad()
             pred_values = self.getExpectedvalues(self.train_states)
             critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards)
-            critic_loss.backward(retain_graph=True)
+            critic_loss.backward()
             self.c_optimizer.step()
 
         pred_values = self.getExpectedvalues(self.train_states)
