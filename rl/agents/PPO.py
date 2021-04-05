@@ -11,7 +11,7 @@ from agents.PolicyOptimization import PolicyGradients
 
 
 class PPO(PolicyGradients):
-    def __init__(self, inp, hid, out, clip_ratio=0.02, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None):
+    def __init__(self, inp, hid, out, clip_ratio=0.2, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None):
         super().__init__(inp, hid, out, isContinuous, useLSTM, nLayers, usewandb, env)
         self.clip_ratio = clip_ratio
 
@@ -19,12 +19,14 @@ class PPO(PolicyGradients):
     def backward(self):
         actions = torch.stack(self.train_actions)
         # Compute an advantage
-        pred_values = self.getExpectedvalue(self.train_states)
-        r = self.train_rewards #- pred_values
+        pred_values = self.getExpectedvalues(self.train_states).detach()
+        critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards)
+        r = self.train_rewards - pred_values
         r = (r - r.mean()) / (r.std() + 1e-10).detach()
         if self.use_wandb:
             wandb.log({"avgReward": self.train_rewards.mean()})
             wandb.log({"avgAdvantage": r.mean()})
+            wandb.log({"criticLoss": critic_loss.mean()})
         old_log_probs = torch.stack(self.log_probs).detach()
         # update actor
         for _ in range(80):
@@ -41,14 +43,14 @@ class PPO(PolicyGradients):
             grad.backward()  # retain_graph=True
             self.p_optimizer.step()
         # update critic
-        for _ in range(40):
+        for _ in range(80):
             self.c_optimizer.zero_grad()
-            pred_values = self.getExpectedvalue(self.train_states)
+            pred_values = self.getExpectedvalues(self.train_states)
             critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards)
             critic_loss.backward(retain_graph=True)
             self.c_optimizer.step()
 
-        pred_values = self.getExpectedvalue(self.train_states)
+        pred_values = self.getExpectedvalues(self.train_states)
         critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards.flatten())
         print("\ntrain reward", self.train_rewards.mean(), "advtg", r.mean(), "critic loss", critic_loss)
         self.avg_rewards = self.train_rewards.mean()

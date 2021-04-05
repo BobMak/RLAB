@@ -15,7 +15,7 @@ if __name__ == "__main__":
     hidden_size = 64
     batch_size = 1000
     batch_is_episode = False
-    epochs = 10
+    epochs = 20
     use_wandb = True
 
     if is_continuous:
@@ -55,6 +55,7 @@ if __name__ == "__main__":
     policy = PPO(input_size,
                  hidden_size,
                  output_size,
+                 clip_ratio=0.4,
                  isContinuous=is_continuous,
                  useLSTM=use_lstm,
                  nLayers=number_of_layers,
@@ -67,7 +68,11 @@ if __name__ == "__main__":
         if use_wandb:
             wandb.watch(policy.model, log="all")
         envHelper = EnvHelper(policy, env, batch_size=batch_size, epochs=epochs, normalize=False)
-        envHelper.setComputeRewardsStrategy("rewardToGo")
+        # "rewardToGo":
+        # "rewardToGoDiscounted": (gamma)
+        # "rewardSum":
+        # "rewardSlidingWindow":
+        envHelper.setComputeRewardsStrategy("rewardToGoDiscounted", gamma=0.98)
         envHelper.trainPolicy()
         policy.save("cachedModels")
 

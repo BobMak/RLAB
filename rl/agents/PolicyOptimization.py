@@ -31,7 +31,7 @@ class PolicyGradients(Agent):
                 # nn.Sigmoid()
             ).to(self.device)
 
-        critic = [nn.Linear(inp+out, hid)]
+        critic = [nn.Linear(inp + out * (2 if isContinuous else 1), hid)]
         for layer in range(nLayers):
             critic.extend([nn.Linear(hid, hid), nn.ReLU()])
         self.critic = nn.Sequential(
@@ -64,9 +64,14 @@ class PolicyGradients(Agent):
             action_distribution = Categorical(logits=distribution_params)
         return action_distribution
 
-    def getExpectedvalue(self, x):
-        action = self.forward(x)
-        value = self.critic.forward(torch.cat([x, action], dim=1))
+    def getExpectedvalues(self, x):
+        actions = self.forward(x)
+        if self.isContinuous:
+            means = actions[0]
+            std = actions[1].repeat(*means.shape[:-1], 1)
+            actions = torch.cat([ means, std ], dim=len(means.shape) - 1)
+        state_action = torch.cat([x, actions],  dim=len(actions.shape)-1)
+        value = self.critic.forward(state_action)  #, dim=1
         return value
 
     # gradient of one trajectory
