@@ -5,6 +5,7 @@ import numpy as np
 
 import gym_miniworld
 
+from agents.PPO import PPO
 from utils.Cache import load_model, save_model
 from agents.ActorCritic import ActorCritic
 
@@ -129,6 +130,7 @@ if __name__ == "__main__":
     use_cached    = False
     is_continuous = False
     use_lstm      = True
+    use_wandb     = False
 
     env = gym.make('MiniWorld-Hallway-v0')
     env.reset()
@@ -138,6 +140,7 @@ if __name__ == "__main__":
     print("env observation", env.observation_space.shape[0])
 
     input_size  = 64
+    number_of_layers = 5
     hidden_size = input_size
     if is_continuous:
         output_size = env.action_space.shape[0]
@@ -150,13 +153,20 @@ if __name__ == "__main__":
     #                                             isContinuous=is_continuous,
     #                                             useLSTM=use_lstm,
     #                                             nLayers=2)
-    policy = ActorCritic(input_size,
-                         hidden_size,
-                         output_size,
-                         isContinuous=is_continuous,
-                         useLSTM=use_lstm,
-                         nLayers=layers_number)
-
+    # policy = ActorCritic(input_size,
+    #                      hidden_size,
+    #                      output_size,
+    #                      isContinuous=is_continuous,
+    #                      useLSTM=use_lstm,
+    #                      nLayers=layers_number)
+    policy = PPO(input_size,
+                 hidden_size,
+                 output_size,
+                 clip_ratio=0.4,
+                 isContinuous=is_continuous,
+                 useLSTM=use_lstm,
+                 nLayers=number_of_layers,
+                 usewandb=use_wandb)
     if use_cached:
         policy = load_model(policy)
 

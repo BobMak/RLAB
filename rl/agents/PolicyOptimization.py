@@ -3,6 +3,7 @@ Policy Gradients implementation
 for continuous or discreet action spaces
 
 """
+import numpy as np
 import wandb
 import torch.nn as nn
 import torch.optim
@@ -54,7 +55,7 @@ class PolicyGradients(Agent):
         self.train_actions.append(sampled_action)
         if not self.isContinuous:
             sampled_action = sampled_action.item()
-        return sampled_action
+        return np.array(sampled_action)
 
     def getActionDistribution(self, x):
         distribution_params = self.forward(x)

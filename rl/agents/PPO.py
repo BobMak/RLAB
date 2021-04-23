@@ -21,7 +21,7 @@ class PPO(PolicyGradients):
         # Compute an advantage
         pred_values = self.getExpectedvalues(self.train_states).detach()
         critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards)
-        r = self.train_rewards - pred_values
+        r = torch.sub(self.train_rewards.unsqueeze(1), pred_values)
         r = (r - r.mean()) / (r.std() + 1e-10).detach()
         if self.use_wandb:
             wandb.log({"avgReward": self.train_rewards.mean()})

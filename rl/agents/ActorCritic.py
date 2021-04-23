@@ -1,4 +1,5 @@
 import wandb
+import numpy as np
 import torch.nn as nn
 import torch.optim
 from torch.distributions.categorical import Categorical
@@ -42,7 +43,7 @@ class ActorCritic(PolicyGradients):
         self.logProbs.append(logProb)
         if not self.isContinuous:
             sampled_action = sampled_action.item()
-        return sampled_action
+        return np.array(sampled_action)
 
     # gradient of one trajectory
     def backward(self):

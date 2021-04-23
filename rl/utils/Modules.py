@@ -30,7 +30,7 @@ class NormalOutput(nn.Module):
         super().__init__()
         self.m = nn.Linear(inp, out)
         log_std = -0.5 * np.ones(out, dtype=np.float32)
-        self.log_std = torch.nn.Parameter(torch.as_tensor(log_std), requires_grad=True)
+        self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))  # , requires_grad=True
         # self.parallel = nn.Parallel(self.w1, self.w2)
         self.act1 = activation
 
