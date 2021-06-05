@@ -29,7 +29,7 @@ class PolicyGradients(Agent):
             policy = [*self.model]
             self.model = nn.Sequential(
                 *policy,
-                # nn.Sigmoid()
+                nn.Sigmoid()
             ).to(self.device)
 
         critic = [nn.Linear(inp + out * (2 if isContinuous else 1), hid)]
@@ -44,6 +44,7 @@ class PolicyGradients(Agent):
         self.c_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-2)
 
         self.log_probs     = []
+        self.neg_log_probs = []
         self.avg_rewards   = torch.tensor([0.0])
 
     def getAction(self, x):
@@ -52,6 +53,7 @@ class PolicyGradients(Agent):
         # save the log likelihood of taking that action for backprop
         logProb = action_distribution.log_prob(sampled_action)
         self.log_probs.append(logProb)
+        self.neg_log_probs.append(action_distribution.log_prob(1-sampled_action))
         self.train_actions.append(sampled_action)
         if not self.isContinuous:
             sampled_action = sampled_action.item()
