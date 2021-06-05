@@ -28,12 +28,23 @@ class PPO(PolicyGradients):
             wandb.log({"avgAdvantage": r.mean()})
             wandb.log({"criticLoss": critic_loss.mean()})
         old_log_probs = torch.stack(self.log_probs).detach()
+        # old_neg_log_probs = torch.stack(self.neg_log_probs).detach()
+        # lg_list = []
+        # for pos, neg, ra in zip(old_log_probs, old_neg_log_probs, r):
+        #     lg_list.append(pos) if ra > 0 else lg_list.append(neg)
+        # old_log_probs = torch.stack(lg_list)
         # update actor
         for _ in range(80):
             self.p_optimizer.zero_grad()
             # compute log_probs after the update
             action_distributions = self.getActionDistribution(self.train_states)
             log_probs = action_distributions.log_prob(actions)
+            # lg_pos = action_distributions.log_prob(actions)
+            # lg_neg = action_distributions.log_prob(1-actions)
+            # lg_list = []
+            # for pos, neg, ra in zip(lg_pos, lg_neg, r):
+            #     lg_list.append(pos) if ra>0 else lg_list.append(neg)
+            # log_probs = torch.stack(lg_list)
             ratio = torch.exp(log_probs - old_log_probs)
             # clip it
             surr1 = torch.clamp(ratio, min=1 - self.clip_ratio, max=1 + self.clip_ratio) * r
