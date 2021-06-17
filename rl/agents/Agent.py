@@ -114,5 +114,3 @@ class Agent:
     def __str__(self):
         return f"{self.env}_h{self.hid}l{self.nls}_" + ("L" if self.use_lstm else "") \
                                          + ("w" if self.use_wandb else "")
-
-
