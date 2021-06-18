@@ -11,16 +11,22 @@ from torch.distributions.categorical import Categorical
 from torch.distributions.normal import Normal
 
 from utils.Modules import NormalOutput
-from agents.Agent import Agent
+from agents.DNNAgent import DNNAgent
 
 
-class PolicyGradients(Agent):
-    def __init__(self, inp, hid, out, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None, dev="cpu"):
-        super(PolicyGradients, self).__init__(inp, hid, out, useLSTM, nLayers, usewandb, env, dev)
+class PolicyGradients(DNNAgent):
+    def __init__(self, inp, hid, out,
+                 isContinuous=False,
+                 useLSTM=False,
+                 nLayers=1,
+                 usewandb=False,
+                 env=None,
+                 device="cpu"):
+        super(PolicyGradients, self).__init__(inp, hid, out, useLSTM, nLayers, usewandb, env, device)
         self.isContinuous = isContinuous
         # replace the discreet output with a continuous Gaussian output
         if isContinuous:
-            policy = [*self.model[:-1]]
+            policy = [*self.model[:-2]]
             self.model = nn.Sequential(
                 *policy,
                 NormalOutput(hid, out, activation=nn.Tanh)
@@ -40,24 +46,24 @@ class PolicyGradients(Agent):
             nn.Linear(hid, 1),
             nn.Tanh()
         )
-        self.p_optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
-        self.c_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-2)
+        self.p_optimizer = torch.optim.Adam(self.model.parameters(), lr=3e-4)
+        self.c_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-3)
 
         self.log_probs     = []
         self.neg_log_probs = []
-        self.avg_rewards   = torch.tensor([0.0])
+        self.avg_reward   = torch.tensor([0.0])
 
     def getAction(self, x):
-        action_distribution = self.getActionDistribution(x)
+        action_distribution = self.getActionDistribution(x.squeeze())
         sampled_action = action_distribution.sample()  # .item()
         # save the log likelihood of taking that action for backprop
         logProb = action_distribution.log_prob(sampled_action)
         self.log_probs.append(logProb)
         self.neg_log_probs.append(action_distribution.log_prob(1-sampled_action))
         self.train_actions.append(sampled_action)
-        if not self.isContinuous:
-            sampled_action = sampled_action.item()
-        return np.array(sampled_action)
+        # if not self.isContinuous:
+        #     sampled_action = sampled_action.item()
+        return np.array(sampled_action.squeeze())
 
     def getActionDistribution(self, x):
         distribution_params = self.forward(x)
@@ -73,7 +79,7 @@ class PolicyGradients(Agent):
             means = actions[0]
             std = actions[1].repeat(*means.shape[:-1], 1)
             actions = torch.cat([ means, std ], dim=len(means.shape) - 1)
-        state_action = torch.cat([x, actions],  dim=len(actions.shape)-1)
+        state_action = torch.cat([x, actions.squeeze()],  dim=1)
         value = self.critic.forward(state_action)  #, dim=1
         return value
 
@@ -89,7 +95,7 @@ class PolicyGradients(Agent):
         grad.backward()
         self.p_optimizer.step()
         print("train reward", self.train_rewards.mean(), "grad", grad, "advtg", r.mean())
-        self.avg_rewards = self.train_rewards.mean()
+        self.avg_reward = self.train_rewards.mean()
         # Reset episode buffer
         self.train_rewards = torch.tensor([]).to(self.device)
         self.train_states  = torch.tensor([]).to(self.device)
@@ -97,6 +103,7 @@ class PolicyGradients(Agent):
         self.log_probs     = []
         if self.use_lstm:
             self.clearLSTMState()
+        return self.avg_reward
 
     def __str__(self):
         return f"PG_{super().__str__()}" + ("C" if self.isContinuous else "D")

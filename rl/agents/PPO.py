@@ -11,8 +11,15 @@ from agents.PolicyOptimization import PolicyGradients
 
 
 class PPO(PolicyGradients):
-    def __init__(self, inp, hid, out, clip_ratio=0.2, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None, dev="cpu"):
-        super().__init__(inp, hid, out, isContinuous, useLSTM, nLayers, usewandb, env, dev)
+    def __init__(self, inp, hid, out,
+                 clip_ratio=0.2,
+                 isContinuous=False,
+                 useLSTM=False,
+                 nLayers=1,
+                 usewandb=False,
+                 env=None,
+                 device="cpu"):
+        super().__init__(inp, hid, out, isContinuous, useLSTM, nLayers, usewandb, env, device)
         self.clip_ratio = clip_ratio
 
     # gradient of one trajectory
@@ -45,7 +52,7 @@ class PPO(PolicyGradients):
             # for pos, neg, ra in zip(lg_pos, lg_neg, r):
             #     lg_list.append(pos) if ra>0 else lg_list.append(neg)
             # log_probs = torch.stack(lg_list)
-            ratio = torch.exp(log_probs - old_log_probs)
+            ratio = torch.exp(log_probs.squeeze() - old_log_probs.squeeze())
             # clip it
             surr1 = torch.clamp(ratio, min=1 - self.clip_ratio, max=1 + self.clip_ratio) * r
             surr2 = ratio * r
@@ -63,8 +70,8 @@ class PPO(PolicyGradients):
 
         pred_values = self.getExpectedvalues(self.train_states)
         critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards.flatten())
-        print("\ntrain reward", self.train_rewards.mean(), "advtg", r.mean(), "critic loss", critic_loss)
-        self.avg_rewards = self.train_rewards.mean()
+        self.avg_reward = self.train_rewards.mean()
+        print("\ntrain reward", self.avg_reward, "advtg", r.mean(), "critic loss", critic_loss)
         # Reset episode buffer
         self.train_rewards = torch.tensor([]).to(self.device)
         self.train_states  = torch.tensor([]).to(self.device)
@@ -72,6 +79,7 @@ class PPO(PolicyGradients):
         self.train_actions = []
         if self.use_lstm:
             self.clearLSTMState()
+        return self.avg_reward
 
     def __str__(self):
         return f"PPO_{super().__str__()[3:]}"

@@ -9,18 +9,23 @@ import torch.nn as nn
 import torch.optim
 
 
-class Agent:
+class DNNAgent:
     def __init__(self, inp, hid, out,
-                 useLSTM=False, nLayers=1, usewandb=False, env=None, dev="cpu"):
+                 useLSTM=False, nLayers=1, usewandb=False, env=None, device="cpu"):
         self.hid      = hid
         self.nls      = nLayers
         self.use_lstm = useLSTM
         self.hidden   = hid
-        self.device   = torch.device(dev)  # cpu
+        self.device   = torch.device(device)  # cpu
         self.use_wandb= usewandb
         policy = []
         policy.append(nn.Linear(inp, hid))
         policy.append(nn.ReLU())
+
+        for n in range(nLayers-1):
+            policy.append(nn.Linear(hid, hid))
+            policy.append(nn.ReLU())
+
         if useLSTM:
             policy.append(nn.LSTM(hid, hid))
             policy.append(nn.ReLU())
@@ -31,14 +36,10 @@ class Agent:
             policy.append(nn.Linear(hid, hid))
             policy.append(nn.ReLU())
 
-        for n in range(nLayers-1):
-            policy.append(nn.Linear(hid, hid))
-            policy.append(nn.ReLU())
-
         policy.append(nn.Linear(hid, out))
         self.model = nn.Sequential(*policy).to(self.device)
 
-        learning_rate = 1e-2
+        learning_rate = 3e-4
         self.p_optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
 
         if env==None:
@@ -67,7 +68,7 @@ class Agent:
 
     def setEnv(self, env):
         self.env = env
-    # see implementations in chile classes
+
     def getAction(self, x):
         raise NotImplemented()
 

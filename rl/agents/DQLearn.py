@@ -4,10 +4,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from agents.Agent import Agent
+from agents.DNNAgent import DNNAgent
 
 
-class DQLearn(Agent):
+class DQLearn(DNNAgent):
     def __init__(self, inp, hid, action_space, useLSTM=False, nLayers=1, usewandb=False, epsilon=0.9, buffLenght=1):
         super(DQLearn, self).__init__(inp + action_space, hid, 1, useLSTM, nLayers, usewandb)
         self.action_space = action_space
