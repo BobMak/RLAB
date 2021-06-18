@@ -18,8 +18,8 @@ if __name__ == "__main__":
     is_continuous = True
 
     batch_size = 2000
-    epochs= 50
-    success_reward = 200
+    epochs= 20
+    success_reward = 5
     normalize = False
 
     if is_continuous:
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     policy = PPO(input_size,
                 hidden_size,
                 output_size,
-                clip_ratio=0.1,
+                clip_ratio=0.2,
                 isContinuous=is_continuous,
                 useLSTM=use_lstm,
                 nLayers=n_layers,

@@ -1,3 +1,4 @@
+import copy
 from math import log, log2, log10
 import torch
 import numpy as np
@@ -21,6 +22,8 @@ class EnvNormalizer:
 class EnvHelper:
     def __init__(self, policy, env, batch_size=5000, epochs=10, normalize=False, batch_is_episode=False, success_reward=None):
         self.policy = policy
+        self.best_policy_state = policy.state_dict()
+        self.best_policy_avg_reward = -999
         self.epochs = epochs
         self.env = env
         self.batch_size = batch_size
@@ -118,15 +121,21 @@ class EnvHelper:
                             print(f"policy has reached optimal performance with avg score {sum(rewards)}")
                             return self.policy
                         break
-            self.policy.backward()
-        return self.policy
+            avg_rew = self.policy.backward()
+            if avg_rew > self.best_policy_avg_reward:
+                self.best_policy_state = self.policy.state_dict()
+                self.best_policy_avg_reward = avg_rew
+                if avg_rew >= self.success_reward:
+                    print("target performance reached, stopping")
+                    break
+        return self.policy.load_state_dict(self.best_policy_state)
 
     def evalueatePolicy(self):
         obs = self.inputHandler(self.env.reset())
         obs = torch.from_numpy(obs)
         obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
-        print("testing")
-        for _ in range(10):
+        print(f"testing the best policy")
+        for _ in range(5):
             rewards = []
             done = False
             while not done:
