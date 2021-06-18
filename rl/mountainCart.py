@@ -10,12 +10,12 @@ from agents.PPO import PPO
 if __name__ == "__main__":
     use_cached = False
     is_continuous = True
-    use_lstm = True
-    number_of_layers = 2
+    use_lstm = False
+    number_of_layers = 3
     hidden_size = 32
     batch_size = 5000
     batch_is_episode = False
-    epochs = 50
+    epochs = 20
     use_wandb = False
     success_reward = 5
 

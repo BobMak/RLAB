@@ -61,6 +61,8 @@ class PPO(PolicyGradients):
             grad = -grad.mean()
             grad.backward()  # retain_graph=True
             self.p_optimizer.step()
+            if self.use_lstm:
+                self.clearLSTMState()
         # update critic
         for _ in range(80):
             self.c_optimizer.zero_grad()
@@ -68,6 +70,8 @@ class PPO(PolicyGradients):
             critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards)
             critic_loss.backward()
             self.c_optimizer.step()
+            if self.use_lstm:
+                self.clearLSTMState()
 
         pred_values = self.getExpectedvalues(self.train_states)
         critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards.flatten())
