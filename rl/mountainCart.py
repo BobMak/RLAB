@@ -9,14 +9,15 @@ from agents.PPO import PPO
 
 if __name__ == "__main__":
     use_cached = False
-    is_continuous = False
+    is_continuous = True
     use_lstm = False
-    number_of_layers = 5
-    hidden_size = 128
-    batch_size = 1000
+    number_of_layers = 3
+    hidden_size = 32
+    batch_size = 5000
     batch_is_episode = False
-    epochs = 30
-    use_wandb = True
+    epochs = 20
+    use_wandb = False
+    success_reward = 5
 
     if is_continuous:
         env_name = "MountainCarContinuous-v0"
@@ -55,7 +56,7 @@ if __name__ == "__main__":
     policy = PPO(input_size,
                  hidden_size,
                  output_size,
-                 clip_ratio=0.1,
+                 clip_ratio=0.2,
                  isContinuous=is_continuous,
                  useLSTM=use_lstm,
                  nLayers=number_of_layers,

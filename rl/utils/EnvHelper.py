@@ -9,20 +9,23 @@ class EnvVanillaInput:
         return inp
 
 
-class EnvNormalizer:
-    def __init__(self, env):
-        self.mean = (env.observation_space.high + env.observation_space.low) / 2
-        self.var  = (env.observation_space.high - env.observation_space.low) / 2
-        # self.mean[self.mean==np.inf] = env.observation_space.high
-
-    def __call__(self, inp):
-        return (inp - self.mean) / self.var
+# class EnvNormalizer:
+#     def __init__(self, env):
+#         params = []
+#         for d in env.observation_space:
+#             mean = (d.high + d.low) / 2
+#             var  = (d.high - d.low) / 2
+#             params.append(np.ndarrayy())
+#         # self.mean[self.mean==np.inf] = env.observation_space.high
+#
+#     def __call__(self, inp):
+#         return (inp - self.mean) / self.var
 
 
 class EnvHelper:
     def __init__(self, policy, env, batch_size=5000, epochs=10, normalize=False, batch_is_episode=False, success_reward=None):
         self.policy = policy
-        self.best_policy_state = policy.state_dict()
+        self.best_policy_state = policy.model.state_dict()
         self.best_policy_avg_reward = -999
         self.epochs = epochs
         self.env = env
@@ -123,12 +126,12 @@ class EnvHelper:
                         break
             avg_rew = self.policy.backward()
             if avg_rew > self.best_policy_avg_reward:
-                self.best_policy_state = self.policy.state_dict()
+                self.best_policy_state = self.policy.model.state_dict()
                 self.best_policy_avg_reward = avg_rew
                 if avg_rew >= self.success_reward:
                     print("target performance reached, stopping")
                     break
-        return self.policy.load_state_dict(self.best_policy_state)
+        return self.policy.model.load_state_dict(self.best_policy_state)
 
     def evalueatePolicy(self):
         obs = self.inputHandler(self.env.reset())

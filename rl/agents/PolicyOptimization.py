@@ -59,11 +59,12 @@ class PolicyGradients(DNNAgent):
         # save the log likelihood of taking that action for backprop
         logProb = action_distribution.log_prob(sampled_action)
         self.log_probs.append(logProb)
-        self.neg_log_probs.append(action_distribution.log_prob(1-sampled_action))
+        # is this right?
+        self.neg_log_probs.append(torch.log(torch.ones_like(logProb) - torch.exp(logProb)))
         self.train_actions.append(sampled_action)
-        # if not self.isContinuous:
-        #     sampled_action = sampled_action.item()
-        return np.array(sampled_action.squeeze())
+        if not self.isContinuous:
+            return np.array(sampled_action.item())
+        return np.array(sampled_action)
 
     def getActionDistribution(self, x):
         distribution_params = self.forward(x)
