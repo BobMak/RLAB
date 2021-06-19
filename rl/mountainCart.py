@@ -1,7 +1,7 @@
 import gym
 import wandb
 
-from agents import ActorCritic, PolicyOptimization
+from agents import ActorCritic, PolicyGradients
 from utils.Cache import load_model, save_model
 from utils.EnvHelper import EnvHelper
 from agents.PPO import PPO

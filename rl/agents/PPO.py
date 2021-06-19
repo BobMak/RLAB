@@ -7,7 +7,7 @@ import wandb
 from torch.distributions.categorical import Categorical
 from torch.distributions.normal import Normal
 
-from agents.PolicyOptimization import PolicyGradients
+from agents.PolicyGradients import PolicyGradients
 
 
 class PPO(PolicyGradients):

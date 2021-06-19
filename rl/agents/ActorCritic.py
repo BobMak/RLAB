@@ -5,7 +5,7 @@ import torch.optim
 from torch.distributions.categorical import Categorical
 from torch.distributions.normal import Normal
 
-from agents.PolicyOptimization import PolicyGradients
+from agents.PolicyGradients import PolicyGradients
 from utils.Modules import ActorCriticOutput
 
 
