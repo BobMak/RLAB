@@ -92,10 +92,10 @@ class EnvHelper:
         }[strategy]
 
     def trainPolicy(self):
-        states = []
-        actions = []
-        rewards = []
         for n in range(self.epochs):
+            states = []
+            actions = []
+            rewards = []
             print(f"---{n+1}/{self.epochs}---")
             obs_raw = self.inputHandler(self.env.reset())
             obs = torch.from_numpy(obs_raw)
@@ -113,16 +113,13 @@ class EnvHelper:
                 rewards.append(reward)
                 if done:
                     self.policy.saveEpisode(states, self.computeRewards(rewards))
+                    states = []
+                    actions = []
+                    rewards = []
                     obs_raw = self.inputHandler(self.env.reset())
                     obs = torch.from_numpy(obs_raw)
                     obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
-                    states  = []
-                    actions = []
-                    rewards = []
                     if sa_count > self.batch_size or self.batch_is_episode:
-                        if self.success_reward and self.success_reward <= sum(rewards):
-                            print(f"policy has reached optimal performance with avg score {sum(rewards)}")
-                            return self.policy
                         break
             avg_rew = self.policy.backward()
             if avg_rew > self.best_policy_avg_reward:
