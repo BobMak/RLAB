@@ -26,7 +26,7 @@ class PPO(PolicyGradients):
     def backward(self):
         actions = torch.stack(self.train_actions)
         # Compute an advantage
-        pred_values = self.getExpectedvalues(self.train_states).detach()
+        pred_values = self.getAllExpectedvalues(self.train_states).detach()
         critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards)
         r = torch.sub(self.train_rewards.unsqueeze(1), pred_values)
         r = (r - r.mean()) / (r.std() + 1e-10).detach()
@@ -44,7 +44,7 @@ class PPO(PolicyGradients):
         for _ in range(80):
             self.p_optimizer.zero_grad()
             # compute log_probs after the update
-            action_distributions = self.getActionDistribution(self.train_states)
+            action_distributions = self.getAllActionDistributions(self.train_states)
             log_probs = action_distributions.log_prob(actions)
             # lg_pos = action_distributions.log_prob(actions)
             # lg_neg = action_distributions.log_prob(1-actions)
@@ -62,18 +62,18 @@ class PPO(PolicyGradients):
             self.p_optimizer.step()
             if self.use_lstm:
                 self.clearLSTMState()
-        # update critic
+        # # update critic
         for _ in range(80):
             self.c_optimizer.zero_grad()
-            pred_values = self.getExpectedvalues(self.train_states)
+            pred_values = self.getAllExpectedvalues(self.train_states)
             critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards)
             critic_loss.backward()
             self.c_optimizer.step()
             if self.use_lstm:
                 self.clearLSTMState()
 
-        pred_values = self.getExpectedvalues(self.train_states)
-        critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards.flatten())
+        # pred_values = self.getAllExpectedvalues(self.train_states)
+        # critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards.flatten())
         self.avg_reward = self.train_rewards.mean()
         print("\ntrain reward", self.avg_reward, "advtg", r.mean(), "critic loss", critic_loss)
         # Reset episode buffer

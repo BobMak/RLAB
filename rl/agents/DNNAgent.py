@@ -32,9 +32,11 @@ class DNNAgent:
             self.hidden_lstm = (torch.randn(1, 1, hid),
                                 torch.randn(1, 1, hid))
             self.lstm_idx = len(policy) - 2
+            self.forward = self._forwardLSTM
         else:
             policy.append(nn.Linear(hid, hid))
             policy.append(nn.ReLU())
+            self.forward = self._forward
 
         policy.append(nn.Linear(hid, out))
         self.model = nn.Sequential(*policy).to(self.device)
@@ -50,21 +52,27 @@ class DNNAgent:
         self.train_states  = torch.tensor([]).to(self.device)
         self.train_rewards = torch.tensor([]).to(self.device)
         self.train_actions = []
+        self.episode_breaks = []
 
+    # forward function for a single state input
     def forward(self, x):
-        if self.use_lstm:
-            out = x
-            for layer in self.model[:self.lstm_idx]:
-                out = layer(out)
-            # LSTM requires hid vector from the previous pass
-            # ensure correct format for the backward pass
-            out = out.view(out.numel() // self.hidden, 1, -1)
-            out, self.hidden_lstm = self.model[self.lstm_idx](out, self.hidden_lstm)
-            for layer in self.model[self.lstm_idx + 1:]:
-                out = layer(out)
-            return out
-        else:
-            return self.model(x)
+        raise NotImplemented()
+
+    # this forward pass has to be done on a single state; passing a sequence will fail silently
+    def _forwardLSTM(self, x):
+        out = x
+        for layer in self.model[:self.lstm_idx]:
+            out = layer(out)
+        # LSTM requires hid vector from the previous pass
+        # ensure correct format for the backward pass
+        out = out.view(out.numel() // self.hidden, 1, -1)
+        out, self.hidden_lstm = self.model[self.lstm_idx](out, self.hidden_lstm)
+        for layer in self.model[self.lstm_idx + 1:]:
+            out = layer(out)
+        return out
+
+    def _forward(self, x):
+        return self.model(x)
 
     def setEnv(self, env):
         self.env = env
@@ -77,10 +85,16 @@ class DNNAgent:
 
     # Save episode's rewards and state-actions
     def saveEpisode(self, states, rewards):
+        self.episode_breaks.append(
+            self.episode_breaks[-1] if len(self.episode_breaks) != 0 else 0 + \
+            len(states)
+        )
         self.train_states = torch.cat([self.train_states,
                                        torch.as_tensor(states, dtype=torch.float32, device=self.device)])
         self.train_rewards= torch.cat([self.train_rewards,
                                        torch.as_tensor(rewards, dtype=torch.float32, device=self.device)])
+        if self.use_lstm:
+            self.clearLSTMState()
 
     # gradient of one trajectory
     def backward(self):
