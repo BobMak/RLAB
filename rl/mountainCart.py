@@ -73,7 +73,7 @@ if __name__ == "__main__":
         # "rewardToGoDiscounted": (gamma)
         # "rewardSum":
         # "rewardSlidingWindow":
-        envHelper.setComputeRewardsStrategy("rewardToGoDiscounted", gamma=0.98)
+        envHelper.setComputeRewardsStrategy("rewardToGo")
         envHelper.trainPolicy()
         policy.save("cachedModels")
 
