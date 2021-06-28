@@ -31,14 +31,18 @@ class PolicyGradients(DNNAgent):
                 *policy,
                 NormalOutput(hid, out, activation=nn.Tanh)
             ).to(self.device)
+            self._actionSample =        self._actionSampleCont
+            self._actionDistribution =  self._actionDistributionCont
         else:
             policy = [*self.model]
             self.model = nn.Sequential(
                 *policy,
                 nn.Sigmoid()
             ).to(self.device)
+            self._actionSample =        self._actionSampleDisc
+            self._actionDistribution =  self._actionDistributionDisc
 
-        critic = [nn.Linear(inp + out * (2 if isContinuous else 1), hid)]
+        critic = [nn.Linear(inp + out, hid)]
         for layer in range(nLayers):
             critic.extend([nn.Linear(hid, hid), nn.ReLU()])
         self.critic = nn.Sequential(
@@ -53,6 +57,7 @@ class PolicyGradients(DNNAgent):
         self.neg_log_probs = []
         self.avg_reward   = torch.tensor([0.0])
 
+    # evaluate on action, called only when on environment interaction
     def getAction(self, x):
         action_distribution = self.getActionDistribution(x.squeeze())
         sampled_action = action_distribution.sample()  # .item()
@@ -62,29 +67,53 @@ class PolicyGradients(DNNAgent):
         # is this right?
         self.neg_log_probs.append(torch.log(torch.ones_like(logProb) - torch.exp(logProb)))
         self.train_actions.append(sampled_action)
-        if not self.isContinuous:
-            return np.array(sampled_action.item())
+        return self._actionSample(sampled_action)
+
+    def _actionSample(self, x):
+        raise NotImplemented()  # Is assigned in init, either a _getActionCont or _getActionDisc
+
+    def _actionSampleCont(self, sampled_action):
         return np.array(sampled_action)
+
+    def _actionSampleDisc(self, sampled_action):
+        return np.array(sampled_action.item())
 
     def getActionDistribution(self, x):
         distribution_params = self.forward(x)
-        if self.isContinuous:
-            action_distribution = Normal(*distribution_params)
-        else:
-            action_distribution = Categorical(logits=distribution_params)
-        return action_distribution
+        return self._actionDistribution(distribution_params)
 
-    def getExpectedvalues(self, x):
-        actions = self.forward(x)
-        if self.isContinuous:
-            means = actions[0]
-            std = actions[1].repeat(*means.shape[:-1], 1)
-            actions = torch.cat([ means, std ], dim=len(means.shape) - 1)
-        state_action = torch.cat([x, actions.squeeze()],  dim=1)
+    # this must be called during the backprop phase instead of getActionDistribution to ensure distributions are
+    # computed in order when using LSTM
+    def getAllActionDistributions(self, x):
+        if self.use_lstm:
+            episode_start_idx = 0
+            distributions = []
+            for episode_end_idx in self.episode_breaks:
+                for i in range(episode_start_idx, episode_end_idx):
+                    distributions.append(self.forward(x[i]))
+                self.clearLSTMState()
+                episode_start_idx = episode_end_idx
+            distribution_params = torch.stack(distributions)
+        else:
+            distribution_params = self.forward(x)
+        return self._actionDistribution(distribution_params)
+
+    def _actionDistribution(self, x):
+        raise NotImplemented()  # Is assigned in init, either a _actionDistributionDisc or _actionDistributionCont
+
+    def _actionDistributionCont(self, distribution_params):
+        return Normal(*distribution_params)
+
+    def _actionDistributionDisc(self, distribution_params):
+        return Categorical(logits=distribution_params)
+
+    def getAllExpectedvalues(self, x):
+        actions = self.train_actions
+        state_action = torch.cat([x, torch.stack(actions)],  dim=1)
         value = self.critic.forward(state_action)  #, dim=1
         return value
 
-    # gradient of one trajectory
+    # one gradient ascent step
     def backward(self):
         self.p_optimizer.zero_grad()
         logProbs = torch.stack(self.log_probs)
