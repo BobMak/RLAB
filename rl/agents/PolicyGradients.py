@@ -22,7 +22,7 @@ class PolicyGradients(DNNAgent):
                  usewandb=False,
                  env=None,
                  device="cpu"):
-        super(PolicyGradients, self).__init__(inp, hid, out, useLSTM, nLayers, usewandb, env, device)
+        super().__init__(inp, hid, out, useLSTM, nLayers, usewandb, env, device)
         self.isContinuous = isContinuous
         # replace the discreet output with a continuous Gaussian output
         if isContinuous:
@@ -31,7 +31,6 @@ class PolicyGradients(DNNAgent):
                 *policy,
                 NormalOutput(hid, out, activation=nn.Tanh)
             ).to(self.device)
-            self._actionSample =        self._actionSampleCont
             self._actionDistribution =  self._actionDistributionCont
         else:
             policy = [*self.model]
@@ -39,7 +38,6 @@ class PolicyGradients(DNNAgent):
                 *policy,
                 nn.Sigmoid()
             ).to(self.device)
-            self._actionSample =        self._actionSampleDisc
             self._actionDistribution =  self._actionDistributionDisc
 
         critic = [nn.Linear(inp + out, hid)]
@@ -49,9 +47,11 @@ class PolicyGradients(DNNAgent):
             *critic[:-2],
             nn.Linear(hid, 1),
             nn.Tanh()
-        )
+        ).to(self.device)
         self.p_optimizer = torch.optim.Adam(self.model.parameters(), lr=3e-4)
         self.c_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-3)
+
+        self.batch_size = 1000
 
         self.log_probs     = []
         self.neg_log_probs = []
@@ -67,16 +67,13 @@ class PolicyGradients(DNNAgent):
         # is this right?
         self.neg_log_probs.append(torch.log(torch.ones_like(logProb) - torch.exp(logProb)))
         self.train_actions.append(sampled_action)
-        return self._actionSample(sampled_action)
+        return np.array(sampled_action.cpu())
 
-    def _actionSample(self, x):
-        raise NotImplemented()  # Is assigned in init, either a _getActionCont or _getActionDisc
-
-    def _actionSampleCont(self, sampled_action):
-        return np.array(sampled_action)
-
-    def _actionSampleDisc(self, sampled_action):
-        return np.array(sampled_action.item())
+    def getOneHotTrainActions(self):
+        onehot = torch.zeros((len(self.train_actions), self.out))
+        for idx, a in enumerate(self.train_actions):
+            onehot[idx][a] = 1
+        return onehot
 
     def getActionDistribution(self, x):
         distribution_params = self.forward(x)
@@ -87,13 +84,16 @@ class PolicyGradients(DNNAgent):
     def getAllActionDistributions(self, x):
         if self.use_lstm:
             episode_start_idx = 0
-            distributions = []
+            avgs = []
+            stds = []
             for episode_end_idx in self.episode_breaks:
                 for i in range(episode_start_idx, episode_end_idx):
-                    distributions.append(self.forward(x[i]))
+                    avg, std = self.forward(x[i])
+                    avgs.append(avg)
+                    stds.append(std)
                 self.clearLSTMState()
                 episode_start_idx = episode_end_idx
-            distribution_params = torch.stack(distributions)
+            distribution_params = (torch.stack(avgs), torch.stack(stds))
         else:
             distribution_params = self.forward(x)
         return self._actionDistribution(distribution_params)
@@ -107,9 +107,14 @@ class PolicyGradients(DNNAgent):
     def _actionDistributionDisc(self, distribution_params):
         return Categorical(logits=distribution_params)
 
-    def getAllExpectedvalues(self, x):
-        actions = self.train_actions
-        state_action = torch.cat([x, torch.stack(actions)],  dim=1)
+    def getAllExpectedValueBatches(self, x):
+        # batches = []
+        # for b in range(len(self.train_states))
+        if self.isContinuous:
+            actions = torch.stack(self.train_actions).reshape(-1, self.out)
+        else:
+            actions = self.getOneHotTrainActions()
+        state_action = torch.cat([x, actions],  dim=1)
         value = self.critic.forward(state_action)  #, dim=1
         return value
 
@@ -130,6 +135,7 @@ class PolicyGradients(DNNAgent):
         self.train_rewards = torch.tensor([]).to(self.device)
         self.train_states  = torch.tensor([]).to(self.device)
         self.train_actions = []
+        self.episode_breaks = []
         self.log_probs     = []
         if self.use_lstm:
             self.clearLSTMState()

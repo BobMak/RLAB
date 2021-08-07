@@ -12,10 +12,10 @@ if __name__ == "__main__":
     is_continuous = True
     use_lstm = False
     number_of_layers = 3
-    hidden_size = 32
-    batch_size = 5000
+    hidden_size = 64
+    batch_size = 1000
     batch_is_episode = False
-    epochs = 20
+    epochs = 50
     use_wandb = False
     success_reward = 5
 

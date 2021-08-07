@@ -7,26 +7,10 @@ import torch.nn as nn
 import spinup.algos.pytorch.ppo.core as spinnUpCore
 
 import gym
-from utils.EnvHelper import EnvNormalizer
+
+from agents.PPO import PPO
+from utils.EnvHelper import EnvHelper
 from utils.Modules import NormalOutput
-
-
-class TestNormalizer(unittest.TestCase):
-    def setUp(self):
-        self.env = gym.make("CartPole-v0")
-        self.env.reset()
-        self.envNorm = EnvNormalizer(self.env)
-
-    def test_varience(self):
-        normzlizedMax = self.envNorm(self.env.observation_space.high)
-        for x in normzlizedMax:
-            self.assertLessEqual(x, 2, f"{x} is > 2")
-        normzlizedMin = self.envNorm(self.env.observation_space.low)
-        for x in normzlizedMin:
-            self.assertGreaterEqual(x, -2, f"{x} is < -2")
-
-    def tearDown(self):
-        self.env.close()
 
 
 class TestLinear(unittest.TestCase):
@@ -136,6 +120,43 @@ class TestNormalModule(unittest.TestCase):
         self.assertAlmostEqual(action_distribution.stddev, trueDistibution.stddev, delta=.2)
         # self.assertAlmostEqual(y, sampled_action, delta=.2)
     # Reset episode buffer
+
+    def test_PPO(self):
+        use_lstm = False
+        number_of_layers = 1
+        hidden_size = 6
+        batch_size = 10
+        epochs = 1
+        use_wandb = False
+        for is_continuous in [True, False]:
+            if is_continuous:
+                env_name = "MountainCarContinuous-v0"
+            else:
+                env_name = "MountainCar-v0"
+            env = gym.make(env_name)
+            env.reset()
+
+            input_size = env.observation_space.shape[0]
+            if is_continuous:
+                output_size = env.action_space.shape[0]
+            else:
+                output_size = env.action_space.n
+            policy = PPO(input_size,
+                         hidden_size,
+                         output_size,
+                         clip_ratio=0.2,
+                         isContinuous=is_continuous,
+                         useLSTM=use_lstm,
+                         nLayers=number_of_layers,
+                         usewandb=use_wandb,
+                         device="cpu")
+            policy.setEnv(env_name)
+            envHelper = EnvHelper(policy, env, batch_size=batch_size, epochs=epochs, normalize=False, success_reward=5)
+            envHelper.setComputeRewardsStrategy("rewardToGoDiscounted", gamma=0.98)
+            envHelper.trainPolicy()
+
+            envHelper.evalueatePolicy(vis=False)
+            env.close()
 
 
 if __name__ == '__main__':

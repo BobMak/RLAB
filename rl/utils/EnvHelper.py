@@ -9,19 +9,6 @@ class EnvVanillaInput:
         return inp
 
 
-# class EnvNormalizer:
-#     def __init__(self, env):
-#         params = []
-#         for d in env.observation_space:
-#             mean = (d.high + d.low) / 2
-#             var  = (d.high - d.low) / 2
-#             params.append(np.ndarrayy())
-#         # self.mean[self.mean==np.inf] = env.observation_space.high
-#
-#     def __call__(self, inp):
-#         return (inp - self.mean) / self.var
-
-
 class EnvHelper:
     def __init__(self, policy, env, batch_size=5000, epochs=10, normalize=False, batch_is_episode=False, success_reward=None):
         self.policy = policy
@@ -130,7 +117,7 @@ class EnvHelper:
                     break
         return self.policy.model.load_state_dict(self.best_policy_state)
 
-    def evalueatePolicy(self):
+    def evalueatePolicy(self, vis=True):
         obs = self.inputHandler(self.env.reset())
         obs = torch.from_numpy(obs)
         obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
@@ -139,7 +126,8 @@ class EnvHelper:
             rewards = []
             done = False
             while not done:
-                self.env.render()
+                if vis:
+                    self.env.render()
                 action = self.policy.getAction(obs)  #.detach()  # .cpu().numpy()
                 obs, reward, done, info = self.env.step(action)
                 obs = np.array(self.inputHandler(obs), dtype=float)

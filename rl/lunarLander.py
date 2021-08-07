@@ -6,6 +6,7 @@ import wandb
 from agents.ActorCritic import ActorCritic
 from agents.PolicyGradients import PolicyGradients
 from agents.PPO import PPO
+# from agents.Mu import Mu
 from agents.DQLearn import DQLearn
 from utils.Cache import load_model, save_model
 from utils.EnvHelper import EnvHelper
@@ -53,6 +54,16 @@ if __name__ == "__main__":
                 useLSTM=use_lstm,
                 nLayers=n_layers,
                 usewandb=use_wandb)
+
+    # policy = Mu(input_size,
+    #             hidden_size,
+    #             output_size,
+    #             guesses=1,
+    #             clip_ratio=0.2,
+    #             isContinuous=is_continuous,
+    #             useLSTM=use_lstm,
+    #             nLayers=n_layers,
+    #             usewandb=use_wandb)
 
     policy.setEnv(env_name)
     if use_cached:

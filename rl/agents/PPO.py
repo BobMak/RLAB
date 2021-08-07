@@ -19,7 +19,7 @@ class PPO(PolicyGradients):
                  nLayers=1,
                  usewandb=False,
                  env=None,
-                 device="cpu"):
+                 device="cuda:0"):
         super().__init__(inp, hid, out, isContinuous, useLSTM, nLayers, usewandb, env, device)
         self.clip_ratio = clip_ratio
 
@@ -27,7 +27,7 @@ class PPO(PolicyGradients):
     def backward(self):
         actions = torch.stack(self.train_actions)
         # Compute an advantage
-        pred_values = self.getAllExpectedvalues(self.train_states).detach()
+        pred_values = self.getAllExpectedValueBatches(self.train_states).detach()
         critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards)
         r = torch.sub(self.train_rewards.unsqueeze(1), pred_values)
         r = (r - r.mean()) / (r.std() + 1e-10).detach()
@@ -66,7 +66,7 @@ class PPO(PolicyGradients):
         # # update critic
         for _ in range(80):
             self.c_optimizer.zero_grad()
-            pred_values = self.getAllExpectedvalues(self.train_states)
+            pred_values = self.getAllExpectedValueBatches(self.train_states)
             critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards)
             critic_loss.backward()
             self.c_optimizer.step()
