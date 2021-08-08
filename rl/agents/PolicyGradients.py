@@ -21,7 +21,8 @@ class PolicyGradients(DNNAgent):
                  nLayers=1,
                  usewandb=False,
                  env=None,
-                 device="cpu"):
+                 device="cpu",
+                 batch_size=200):
         super().__init__(inp, hid, out, useLSTM, nLayers, usewandb, env, device)
         self.isContinuous = isContinuous
         # replace the discreet output with a continuous Gaussian output
@@ -51,7 +52,7 @@ class PolicyGradients(DNNAgent):
         self.p_optimizer = torch.optim.Adam(self.model.parameters(), lr=3e-4)
         self.c_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-3)
 
-        self.batch_size = 1000
+        self.batch_size = batch_size
 
         self.log_probs     = []
         self.neg_log_probs = []
@@ -81,22 +82,26 @@ class PolicyGradients(DNNAgent):
 
     # this must be called during the backprop phase instead of getActionDistribution to ensure distributions are
     # computed in order when using LSTM
-    def getAllActionDistributions(self, x):
-        if self.use_lstm:
-            episode_start_idx = 0
-            avgs = []
-            stds = []
-            for episode_end_idx in self.episode_breaks:
-                for i in range(episode_start_idx, episode_end_idx):
-                    avg, std = self.forward(x[i])
-                    avgs.append(avg)
-                    stds.append(std)
-                self.clearLSTMState()
-                episode_start_idx = episode_end_idx
-            distribution_params = (torch.stack(avgs), torch.stack(stds))
-        else:
-            distribution_params = self.forward(x)
-        return self._actionDistribution(distribution_params)
+    def getAllActionDistributions(self):
+        batches = self.train_states.split(self.batch_size, -1)
+        action_distributions = []
+        for x in batches:
+            if self.use_lstm:
+                episode_start_idx = 0
+                avgs = []
+                stds = []
+                for episode_end_idx in self.episode_breaks:
+                    for i in range(episode_start_idx, episode_end_idx):
+                        avg, std = self.forward(x[i])
+                        avgs.append(avg)
+                        stds.append(std)
+                    self.clearLSTMState()
+                    episode_start_idx = episode_end_idx
+                distribution_params = (torch.stack(avgs), torch.stack(stds))
+            else:
+                distribution_params = self.forward(x)
+            action_distributions.append(self._actionDistribution(distribution_params))
+        return action_distributions
 
     def _actionDistribution(self, x):
         raise NotImplemented()  # Is assigned in init, either a _actionDistributionDisc or _actionDistributionCont
@@ -108,15 +113,18 @@ class PolicyGradients(DNNAgent):
         return Categorical(logits=distribution_params)
 
     def getAllExpectedValueBatches(self, x):
-        # batches = []
+        batches = x.split(self.batch_size, -1)
+        values = []
         # for b in range(len(self.train_states))
-        if self.isContinuous:
-            actions = torch.stack(self.train_actions).reshape(-1, self.out)
-        else:
-            actions = self.getOneHotTrainActions()
-        state_action = torch.cat([x, actions],  dim=1)
-        value = self.critic.forward(state_action)  #, dim=1
-        return value
+        for b in batches:
+            if self.isContinuous:
+                actions = torch.stack(self.train_actions).reshape(-1, self.out)
+            else:
+                actions = self.getOneHotTrainActions()
+            state_action = torch.cat([x, actions.to(self.device)],  dim=1)
+            value = self.critic.forward(state_action)  #, dim=1
+            values.append(value)
+        return values
 
     # one gradient ascent step
     def backward(self):

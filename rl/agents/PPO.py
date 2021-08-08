@@ -19,22 +19,25 @@ class PPO(PolicyGradients):
                  nLayers=1,
                  usewandb=False,
                  env=None,
-                 device="cuda:0"):
-        super().__init__(inp, hid, out, isContinuous, useLSTM, nLayers, usewandb, env, device)
+                 device="cuda:0",
+                 batch_size=200):
+        super().__init__(inp, hid, out, isContinuous, useLSTM, nLayers, usewandb, env, device, batch_size=batch_size)
         self.clip_ratio = clip_ratio
 
     # gradient of one trajectory
     def backward(self):
         actions = torch.stack(self.train_actions)
         # Compute an advantage
-        pred_values = self.getAllExpectedValueBatches(self.train_states).detach()
-        critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards)
-        r = torch.sub(self.train_rewards.unsqueeze(1), pred_values)
-        r = (r - r.mean()) / (r.std() + 1e-10).detach()
+        pred_values_batches = self.getAllExpectedValueBatches(self.train_states)
+        rews = []
+        for pred_values in pred_values_batches:
+            pred_values = pred_values.detach()
+            critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards)
+            r = torch.sub(self.train_rewards.unsqueeze(1), pred_values)
+            r = (r - r.mean()) / (r.std() + 1e-10).detach()
+            rews.append(r)
         if self.use_wandb:
             wandb.log({"avgReward": self.train_rewards.mean()})
-            wandb.log({"avgAdvantage": r.mean()})
-            wandb.log({"criticLoss": critic_loss.mean()})
         old_log_probs = torch.stack(self.log_probs).detach()
         # old_neg_log_probs = torch.stack(self.neg_log_probs).detach()
         # lg_list = []
@@ -45,38 +48,40 @@ class PPO(PolicyGradients):
         for _ in range(80):
             self.p_optimizer.zero_grad()
             # compute log_probs after the update
-            action_distributions = self.getAllActionDistributions(self.train_states)
-            log_probs = action_distributions.log_prob(actions)
-            # lg_pos = action_distributions.log_prob(actions)
-            # lg_neg = action_distributions.log_prob(1-actions)
-            # lg_list = []
-            # for pos, neg, ra in zip(lg_pos, lg_neg, r):
-            #     lg_list.append(pos) if ra>0 else lg_list.append(neg)
-            # log_probs = torch.stack(lg_list)
-            ratio = torch.exp(log_probs.squeeze() - old_log_probs.squeeze())
-            # clip it
-            surr1 = torch.clamp(ratio, min=1 - self.clip_ratio, max=1 + self.clip_ratio) * r
-            surr2 = ratio * r
-            grad = torch.min( surr1, surr2 )
-            grad = -grad.mean()
-            grad.backward()  # retain_graph=True
-            self.p_optimizer.step()
-            if self.use_lstm:
-                self.clearLSTMState()
+            action_distribution_batches = self.getAllActionDistributions()
+            for action_distributions, r in zip(action_distribution_batches, rews):
+                log_probs = action_distributions.log_prob(actions)
+                # lg_pos = action_distributions.log_prob(actions)
+                # lg_neg = action_distributions.log_prob(1-actions)
+                # lg_list = []
+                # for pos, neg, ra in zip(lg_pos, lg_neg, r):
+                #     lg_list.append(pos) if ra>0 else lg_list.append(neg)
+                # log_probs = torch.stack(lg_list)
+                ratio = torch.exp(log_probs.squeeze() - old_log_probs.squeeze())
+                # clip it
+                surr1 = torch.clamp(ratio, min=1 - self.clip_ratio, max=1 + self.clip_ratio) * r
+                surr2 = ratio * r
+                grad = torch.min( surr1, surr2 )
+                grad = -grad.mean()
+                grad.backward()  # retain_graph=True
+                self.p_optimizer.step()
+                if self.use_lstm:
+                    self.clearLSTMState()
         # # update critic
         for _ in range(80):
             self.c_optimizer.zero_grad()
-            pred_values = self.getAllExpectedValueBatches(self.train_states)
-            critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards)
-            critic_loss.backward()
-            self.c_optimizer.step()
-            if self.use_lstm:
-                self.clearLSTMState()
+            pred_values_batches = self.getAllExpectedValueBatches(self.train_states)
+            for pred_values in pred_values_batches:
+                critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards)
+                critic_loss.backward()
+                self.c_optimizer.step()
+                if self.use_lstm:
+                    self.clearLSTMState()
 
         # pred_values = self.getAllExpectedvalues(self.train_states)
         # critic_loss = torch.nn.MSELoss()(pred_values, self.train_rewards.flatten())
         self.avg_reward = self.train_rewards.mean()
-        print("\ntrain reward", self.avg_reward, "advtg", r.mean(), "critic loss", critic_loss)
+        print("\ntrain reward", self.avg_reward, "advtg", rews[0].mean())
         # Reset episode buffer
         self.train_rewards = torch.tensor([]).to(self.device)
         self.train_states  = torch.tensor([]).to(self.device)

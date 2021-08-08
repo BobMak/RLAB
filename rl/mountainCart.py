@@ -12,8 +12,9 @@ if __name__ == "__main__":
     is_continuous = True
     use_lstm = False
     number_of_layers = 3
-    hidden_size = 64
-    batch_size = 1000
+    hidden_size = 12
+    epoch_size = 1000
+    batch_size = 200
     batch_is_episode = False
     epochs = 50
     use_wandb = False
@@ -60,7 +61,9 @@ if __name__ == "__main__":
                  isContinuous=is_continuous,
                  useLSTM=use_lstm,
                  nLayers=number_of_layers,
-                 usewandb=use_wandb)
+                 usewandb=use_wandb,
+                 device="cuda",
+                 batch_size=batch_size)
     policy.setEnv(env_name)
     if use_cached:
         policy.load("cachedModels")
@@ -68,12 +71,12 @@ if __name__ == "__main__":
     else:
         if use_wandb:
             wandb.watch(policy.model, log="all")
-        envHelper = EnvHelper(policy, env, batch_size=batch_size, epochs=epochs, normalize=False, success_reward=5)
+        envHelper = EnvHelper(policy, env, batch_size=epoch_size, epochs=epochs, normalize=False, success_reward=5)
         # "rewardToGo":
         # "rewardToGoDiscounted": (gamma)
         # "rewardSum":
         # "rewardSlidingWindow":
-        envHelper.setComputeRewardsStrategy("rewardToGoDiscounted", gamma=0.98)
+        envHelper.setComputeRewardsStrategy("rewardToGo")
         envHelper.trainPolicy()
         policy.save("cachedModels")
 
