@@ -1,3 +1,4 @@
+import copy
 from math import log, log2, log10
 import torch
 import numpy as np
@@ -8,19 +9,24 @@ class EnvVanillaInput:
         return inp
 
 
-class EnvNormalizer:
-    def __init__(self, env):
-        self.mean = (env.observation_space.high + env.observation_space.low) / 2
-        self.var  = (env.observation_space.high - env.observation_space.low) / 2
-        # self.mean[self.mean==np.inf] = env.observation_space.high
-
-    def __call__(self, inp):
-        return (inp - self.mean) / self.var
+# class EnvNormalizer:
+#     def __init__(self, env):
+#         params = []
+#         for d in env.observation_space:
+#             mean = (d.high + d.low) / 2
+#             var  = (d.high - d.low) / 2
+#             params.append(np.ndarrayy())
+#         # self.mean[self.mean==np.inf] = env.observation_space.high
+#
+#     def __call__(self, inp):
+#         return (inp - self.mean) / self.var
 
 
 class EnvHelper:
-    def __init__(self, policy, env, batch_size=5000, epochs=10, normalize=False, batch_is_episode=False):
+    def __init__(self, policy, env, batch_size=5000, epochs=10, normalize=False, batch_is_episode=False, success_reward=None):
         self.policy = policy
+        self.best_policy_state = policy.model.state_dict()
+        self.best_policy_avg_reward = -999
         self.epochs = epochs
         self.env = env
         self.batch_size = batch_size
@@ -33,6 +39,7 @@ class EnvHelper:
         self._window = 50     # sliding window reward assignment
         self._gamma  = 0.995  # discounted future reward gamma 
         self.setComputeRewardsStrategy("rewardToGoDiscounted")
+        self.success_reward = success_reward
 
     def computeRewards(self, rewards) -> [torch.Tensor]:
         return None
@@ -85,10 +92,10 @@ class EnvHelper:
         }[strategy]
 
     def trainPolicy(self):
-        states = []
-        actions = []
-        rewards = []
         for n in range(self.epochs):
+            states = []
+            actions = []
+            rewards = []
             print(f"---{n+1}/{self.epochs}---")
             obs_raw = self.inputHandler(self.env.reset())
             obs = torch.from_numpy(obs_raw)
@@ -104,9 +111,8 @@ class EnvHelper:
                 obs = torch.from_numpy(obs)
                 obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
                 rewards.append(reward)
-
                 if done:
-                    self.policy.saveEpisode(states, actions, self.computeRewards(rewards))
+                    self.policy.saveEpisode(states, self.computeRewards(rewards))
                     states = []
                     actions = []
                     rewards = []
@@ -115,15 +121,21 @@ class EnvHelper:
                     obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
                     if sa_count > self.batch_size or self.batch_is_episode:
                         break
-            self.policy.backward()
-        return self.policy
+            avg_rew = self.policy.backward()
+            if avg_rew > self.best_policy_avg_reward:
+                self.best_policy_state = self.policy.model.state_dict()
+                self.best_policy_avg_reward = avg_rew
+                if avg_rew >= self.success_reward:
+                    print("target performance reached, stopping")
+                    break
+        return self.policy.model.load_state_dict(self.best_policy_state)
 
     def evalueatePolicy(self):
         obs = self.inputHandler(self.env.reset())
         obs = torch.from_numpy(obs)
         obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
-        print("testing")
-        for _ in range(10):
+        print(f"testing the best policy")
+        for _ in range(5):
             rewards = []
             done = False
             while not done:

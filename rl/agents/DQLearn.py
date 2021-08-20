@@ -4,10 +4,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from agents.Agent import Agent
+from agents.DNNAgent import DNNAgent
 
 
-class DQLearn(Agent):
+class DQLearn(DNNAgent):
     def __init__(self, inp, hid, action_space, useLSTM=False, nLayers=1, usewandb=False, epsilon=0.9, buffLenght=1):
         super(DQLearn, self).__init__(inp + action_space, hid, 1, useLSTM, nLayers, usewandb)
         self.action_space = action_space
@@ -49,9 +49,9 @@ class DQLearn(Agent):
         grad = ((pred - real)**2).mean()
         grad.backward()
         #self.criterion(pred, real)
-        self.optimizer.step()
-        self.optimizer.zero_grad()
-        if self.usewandb:
+        self.p_optimizer.step()
+        self.p_optimizer.zero_grad()
+        if self.use_wandb:
             wandb.log ({ "awgReward": real.mean() } )
         print("train reward", self.trainRewards.mean())
         # self.avgRewards = self.trainRewards.mean()
@@ -62,7 +62,7 @@ class DQLearn(Agent):
             self.trainRewards      = torch.tensor([]).to(self.device)
             self.trainStateActions = []
             self.expRewards        = []
-        if self.useLSTM:
+        if self.use_lstm:
             self.clearLSTMState()
 
     def __str__(self):

@@ -4,7 +4,8 @@ import numpy as np
 import wandb
 
 from agents.ActorCritic import ActorCritic
-from agents.PolicyOptimization import PolicyGradients
+from agents.PolicyGradients import PolicyGradients
+from agents.PPO import PPO
 from agents.DQLearn import DQLearn
 from utils.Cache import load_model, save_model
 from utils.EnvHelper import EnvHelper
@@ -13,9 +14,14 @@ from utils.EnvHelper import EnvHelper
 if __name__ == "__main__":
     use_cached = False
     use_lstm = False
-    use_wandb = True
+    use_wandb = False
+    env_name = "CartPole-v0"
+    batch_size = 2000
+    epochs= 30
+    success_reward = 200
+    normalize = False
 
-    env = gym.make("CartPole-v0")
+    env = gym.make(env_name)
     env.reset()
 
     if use_wandb:
@@ -27,6 +33,7 @@ if __name__ == "__main__":
 
     input_size = env.observation_space.shape[0]
     hidden_size = 32
+    n_layers = 2
     # if is_continuous:
     #     output_size = env.action_space.shape[0]
     # else:
@@ -37,27 +44,37 @@ if __name__ == "__main__":
     #                         output_size,
     #                         isContinuous=False,
     #                         useLSTM=use_lstm,
-    #                         nLayers=5,
+    #                         nLayers=2,
     #                         usewandb=use_wandb)
+
+    policy = PPO(input_size,
+                hidden_size,
+                output_size,
+                clip_ratio=1.0,
+                isContinuous=False,
+                useLSTM=use_lstm,
+                nLayers=n_layers,
+                usewandb=use_wandb)
     # model = ActorCritic(input_size,
     #                      hidden_size,
     #                      output_size,
     #                      isContinuous=is_continuous,
     #                      useLSTM=use_lstm,
     #                      nLayers=2)
-    policy = DQLearn(input_size,
-                     hidden_size,
-                     output_size,
-                     useLSTM=use_lstm,
-                     nLayers=5,
-                     usewandb=use_wandb)
+    # policy = DQLearn(input_size,
+    #                  hidden_size,
+    #                  output_size,
+    #                  useLSTM=use_lstm,
+    #                  nLayers=5,
+    #                  usewandb=use_wandb)
+    policy.setEnv(env_name)
     if use_cached:
         policy.load("cachedModels")
         envHelper = EnvHelper(policy, env)
     else:
         if use_wandb:
             wandb.watch(policy.model, log="all")
-        envHelper = EnvHelper(policy, env, batch_size=5000, epochs=10, normalize=False)
+        envHelper = EnvHelper(policy, env, batch_size=batch_size, epochs=epochs, normalize=normalize, success_reward=success_reward)
         envHelper.trainPolicy()
         policy.save("cachedModels")
 

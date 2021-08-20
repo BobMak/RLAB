@@ -26,18 +26,18 @@ class MyFun(torch.autograd.Function):
 
 
 class NormalOutput(nn.Module):
-    def __init__(self, inp, out, activation=nn.Sigmoid):
+    def __init__(self, inp, out, activation=nn.Tanh):
         super().__init__()
         self.m = nn.Linear(inp, out)
-        self.v = nn.Linear(inp, out)
+        log_std = -0.5 * np.ones(out, dtype=np.float32)
+        self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))  # , requires_grad=True
         # self.parallel = nn.Parallel(self.w1, self.w2)
-        self.act1 = nn.Sigmoid()
-        self.act2 = nn.ReLU()  # no negative outputs for variance
+        self.act1 = activation
 
     def forward(self, inputs):
         # res1 = self.act1(self.m(inputs))  # self.act1(
         mout = self.m(inputs)
-        vout = torch.clamp(self.v(inputs), min=0.001)
+        vout = torch.exp(self.log_std)
         return mout, vout
 
 

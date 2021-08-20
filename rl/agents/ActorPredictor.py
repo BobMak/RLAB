@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
 from torch.distributions.normal import Normal
 
-from agents.PolicyOptimization import PolicyGradients
+from agents.PolicyGradients import PolicyGradients
 
 
 class ActorCritic(PolicyGradients):
@@ -49,13 +49,13 @@ class ActorCritic(PolicyGradients):
         grad.backward()
         print("train reward", self.trainRewards.mean(), "grad", grad, "advtg", r)
         self.avgRewards = self.trainRewards.mean()
-        self.optimizer.step()
+        self.p_optimizer.step()
         print("train value", self.criticValues.mean())
         # Reset episode buffer
         self.trainRewards = torch.tensor([]).to(self.device)
         self.trainActions = torch.tensor([]).to(self.device)
         self.trainStates = torch.tensor([]).to(self.device)
-        if self.useLSTM:
+        if self.use_lstm:
             self.clearLSTMState()
 
     def __str__(self):

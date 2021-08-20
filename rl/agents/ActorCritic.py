@@ -1,10 +1,11 @@
 import wandb
+import numpy as np
 import torch.nn as nn
 import torch.optim
 from torch.distributions.categorical import Categorical
 from torch.distributions.normal import Normal
 
-from agents.PolicyOptimization import PolicyGradients
+from agents.PolicyGradients import PolicyGradients
 from utils.Modules import ActorCriticOutput
 
 
@@ -42,7 +43,7 @@ class ActorCritic(PolicyGradients):
         self.logProbs.append(logProb)
         if not self.isContinuous:
             sampled_action = sampled_action.item()
-        return sampled_action
+        return np.array(sampled_action)
 
     # gradient of one trajectory
     def backward(self):
@@ -64,7 +65,7 @@ class ActorCritic(PolicyGradients):
         self.optimizer.zero_grad()
         criticMean = criticValues.mean().item()
         print("avg estimated reward", criticMean, "grad", valueGrad.item())
-        if self.usewandb:
+        if self.use_wandb:
             wandb.log({"awgReward": rewardMean})
             wandb.log({"awgCritic": criticMean})
         # Reset episode buffer
@@ -73,7 +74,7 @@ class ActorCritic(PolicyGradients):
         self.trainStates  = torch.tensor([]).to(self.device)
         self.criticValues = []
         self.logProbs     = []
-        if self.useLSTM:
+        if self.use_lstm:
             self.clearLSTMState()
 
     def __str__(self):
