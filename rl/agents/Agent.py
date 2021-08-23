@@ -11,12 +11,12 @@ import torch.optim
 
 class Agent:
     def __init__(self, inp, hid, out,
-                 useLSTM=False, nLayers=1, usewandb=False, env=None):
+                 useLSTM=False, nLayers=1, usewandb=False, env=None, dev="cpu"):
         self.hid      = hid
         self.nls      = nLayers
         self.use_lstm = useLSTM
         self.hidden   = hid
-        self.device   = torch.device("cpu")  # cpu
+        self.device   = torch.device(dev)  # cpu
         self.use_wandb= usewandb
         policy = []
         policy.append(nn.Linear(inp, hid))

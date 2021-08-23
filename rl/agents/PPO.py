@@ -11,8 +11,8 @@ from agents.PolicyOptimization import PolicyGradients
 
 
 class PPO(PolicyGradients):
-    def __init__(self, inp, hid, out, clip_ratio=0.2, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None):
-        super().__init__(inp, hid, out, isContinuous, useLSTM, nLayers, usewandb, env)
+    def __init__(self, inp, hid, out, clip_ratio=0.2, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None, dev="cpu"):
+        super().__init__(inp, hid, out, isContinuous, useLSTM, nLayers, usewandb, env, dev)
         self.clip_ratio = clip_ratio
 
     # gradient of one trajectory
