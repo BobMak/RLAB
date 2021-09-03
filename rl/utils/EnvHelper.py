@@ -31,10 +31,7 @@ class EnvHelper:
         self.env = env
         self.batch_size = batch_size
         self.batch_is_episode = batch_is_episode
-        if normalize:
-            self.inputHandler = EnvNormalizer(self.env)
-        else:
-            self.inputHandler = EnvVanillaInput()
+        self.inputHandler = EnvVanillaInput()
 
         self._window = 50     # sliding window reward assignment
         self._gamma  = 0.995  # discounted future reward gamma 
@@ -90,6 +87,9 @@ class EnvHelper:
             "rewardSum": self.rewardSum,
             "rewardSlidingWindow": self.rewardSlidingWindow
         }[strategy]
+
+    def setInputHandler(self, handler):
+        self.inputHandler = handler
 
     def trainPolicy(self):
         for n in range(self.epochs):

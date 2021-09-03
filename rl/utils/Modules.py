@@ -7,6 +7,13 @@ from torch.distributions.categorical import Categorical
 from torch.distributions.normal import Normal
 
 
+def oneHot( x:int, maximum:int):
+    assert x <= maximum, "int to onehot transform error: x > max"
+    out = np.zeros(maximum)
+    out[x-1] = 1
+    return out
+
+
 class Flatten(nn.Module):
     def __init__(self):
         super().__init__()
