@@ -67,7 +67,7 @@ class Agent:
 
     def setEnv(self, env):
         self.env = env
-
+    # see implementations in chile classes
     def getAction(self, x):
         raise NotImplemented()
 
