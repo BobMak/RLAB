@@ -4,6 +4,7 @@ PPO implementation
 
 import torch
 import wandb
+import gc
 from torch.distributions.categorical import Categorical
 from torch.distributions.normal import Normal
 
