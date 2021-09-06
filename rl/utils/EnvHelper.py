@@ -9,19 +9,6 @@ class EnvVanillaInput:
         return inp
 
 
-# class EnvNormalizer:
-#     def __init__(self, env):
-#         params = []
-#         for d in env.observation_space:
-#             mean = (d.high + d.low) / 2
-#             var  = (d.high - d.low) / 2
-#             params.append(np.ndarrayy())
-#         # self.mean[self.mean==np.inf] = env.observation_space.high
-#
-#     def __call__(self, inp):
-#         return (inp - self.mean) / self.var
-
-
 class EnvHelper:
     def __init__(self, policy, env, batch_size=5000, epochs=10, normalize=False, batch_is_episode=False, success_reward=None):
         self.policy = policy
@@ -31,7 +18,6 @@ class EnvHelper:
         self.env = env
         self.batch_size = batch_size
         self.batch_is_episode = batch_is_episode
-        self.inputHandler = EnvVanillaInput()
 
         self._window = 50     # sliding window reward assignment
         self._gamma  = 0.995  # discounted future reward gamma 
@@ -91,34 +77,39 @@ class EnvHelper:
     def setInputHandler(self, handler):
         self.inputHandler = handler
 
+    def inputHandler(self, obs):
+        obs = torch.from_numpy(obs)
+        obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
+        return obs
+
+    def setOutputHandler(self, handler):
+        self.outputHanlder = handler
+
+    def outputHanlder(self, action):
+        return action
+
     def trainPolicy(self):
         for n in range(self.epochs):
             states = []
             actions = []
             rewards = []
             print(f"---{n+1}/{self.epochs}---")
-            obs_raw = self.inputHandler(self.env.reset())
-            obs = torch.from_numpy(obs_raw)
-            obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
+            obs = self.inputHandler(self.env.reset())
             sa_count = 0
             while True:
                 sa_count += 1
                 action = self.policy.getAction(obs)
-                states.append(obs_raw)
+                states.append(obs)
                 actions.append(action)
-                obs_raw, reward, done, info = self.env.step(action)
-                obs = np.array(self.inputHandler(obs_raw), dtype=float)
-                obs = torch.from_numpy(obs)
-                obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
+                obs_raw, reward, done, info = self.env.step(self.outputHanlder(action))
+                obs = self.inputHandler(obs_raw)
                 rewards.append(reward)
                 if done:
                     self.policy.saveEpisode(states, self.computeRewards(rewards))
                     states = []
                     actions = []
                     rewards = []
-                    obs_raw = self.inputHandler(self.env.reset())
-                    obs = torch.from_numpy(obs_raw)
-                    obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
+                    obs = self.inputHandler(self.env.reset())
                     if sa_count > self.batch_size or self.batch_is_episode:
                         break
             avg_rew = self.policy.backward()
@@ -141,15 +132,11 @@ class EnvHelper:
             while not done:
                 self.env.render()
                 action = self.policy.getAction(obs)  #.detach()  # .cpu().numpy()
-                obs, reward, done, info = self.env.step(action)
-                obs = np.array(self.inputHandler(obs), dtype=float)
-                obs = torch.from_numpy(obs)
-                obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
+                obs, reward, done, info = self.env.step(self.outputHanlder(action))
+                obs = self.inputHandler(obs)
                 rewards.append(reward)
             print("test rewards", sum(rewards))
             obs = self.inputHandler(self.env.reset())
-            obs = torch.from_numpy(obs)
-            obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
 
 
 def entropy( probabilities:[], base=None ):

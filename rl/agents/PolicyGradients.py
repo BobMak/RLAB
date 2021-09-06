@@ -10,7 +10,7 @@ import torch.optim
 from torch.distributions.categorical import Categorical
 from torch.distributions.normal import Normal
 
-from utils.Modules import NormalOutput
+from utils.Modules import NormalOutput, oneHot
 from agents.DNNAgent import DNNAgent
 
 
@@ -59,13 +59,15 @@ class PolicyGradients(DNNAgent):
 
     # evaluate on action, called only when on environment interaction
     def getAction(self, x):
-        action_distribution = self.getActionDistribution(x.squeeze())
+        action_distribution = self.getActionDistribution(x)  # why did i have .squeeze() here?
         sampled_action = action_distribution.sample()  # .item()
         # save the log likelihood of taking that action for backprop
         logProb = action_distribution.log_prob(sampled_action)
         self.log_probs.append(logProb)
         # is this right?
         self.neg_log_probs.append(torch.log(torch.ones_like(logProb) - torch.exp(logProb)))
+        if not self.isContinuous:
+            sampled_action = sampled_action.unsqueeze(0)
         self.train_actions.append(sampled_action)
         return self._actionSample(sampled_action)
 
@@ -73,10 +75,10 @@ class PolicyGradients(DNNAgent):
         raise NotImplemented()  # Is assigned in init, either a _getActionCont or _getActionDisc
 
     def _actionSampleCont(self, sampled_action):
-        return np.array(sampled_action)
+        return np.array(sampled_action.cpu())
 
     def _actionSampleDisc(self, sampled_action):
-        return np.array(sampled_action.item())
+        return np.array(sampled_action)  # .item()
 
     def getActionDistribution(self, x):
         distribution_params = self.forward(x)
@@ -109,7 +111,9 @@ class PolicyGradients(DNNAgent):
 
     def getAllExpectedvalues(self, x):
         actions = self.train_actions
-        state_action = torch.cat([x, torch.stack(actions)],  dim=1)
+        if not self.isContinuous:
+            actions = oneHot(self.train_actions, )
+        state_action = torch.cat([x, torch.stack(actions)],  dim=-1)
         value = self.critic.forward(state_action)  #, dim=1
         return value
 

@@ -12,10 +12,11 @@ import torch.optim
 class DNNAgent:
     def __init__(self, inp, hid, out,
                  useLSTM=False, nLayers=1, usewandb=False, env=None, device="cpu"):
+        self.inp      = inp
         self.hid      = hid
+        self.out      = out
         self.nls      = nLayers
         self.use_lstm = useLSTM
-        self.hidden   = hid
         self.device   = torch.device(device)  # cpu
         self.use_wandb= usewandb
         policy = []
@@ -65,7 +66,7 @@ class DNNAgent:
             out = layer(out)
         # LSTM requires hid vector from the previous pass
         # ensure correct format for the backward pass
-        out = out.view(out.numel() // self.hidden, 1, -1)
+        out = out.view(out.numel() // self.hid, 1, -1)
         out, self.hidden_lstm = self.model[self.lstm_idx](out, self.hidden_lstm)
         for layer in self.model[self.lstm_idx + 1:]:
             out = layer(out)
@@ -101,13 +102,14 @@ class DNNAgent:
         raise NotImplemented()
 
     def clearLSTMState(self):
-        self.hidden_lstm = (torch.randn(1, 1, self.hidden),
-                            torch.randn(1, 1, self.hidden))
+        self.hidden_lstm = (torch.randn(1, 1, self.hid),
+                            torch.randn(1, 1, self.hid))
 
     def setInputModule(self, module):
         withInput = [module]
         withInput.extend(self.model)
-        self.lstm_idx += 1
+        if self.use_lstm:
+            self.lstm_idx += 1
         self.model = nn.Sequential(*withInput).to(self.device)
         learning_rate = 1e-2
         self.p_optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)

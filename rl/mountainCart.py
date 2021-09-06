@@ -7,9 +7,13 @@ from utils.EnvHelper import EnvHelper
 from agents.PPO import PPO
 
 
+def mountaintCartAction(a):
+    return int(a[0])
+
+
 if __name__ == "__main__":
     use_cached = False
-    is_continuous = True
+    is_continuous = False
     use_lstm = False
     number_of_layers = 3
     hidden_size = 32
@@ -74,6 +78,7 @@ if __name__ == "__main__":
         # "rewardSum":
         # "rewardSlidingWindow":
         envHelper.setComputeRewardsStrategy("rewardToGo")
+        envHelper.setOutputHandler(mountaintCartAction)
         envHelper.trainPolicy()
         policy.save("cachedModels")
 

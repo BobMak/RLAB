@@ -14,6 +14,27 @@ def oneHot( x:int, maximum:int):
     return out
 
 
+# encode: gets image and direction data from the raw observation, turns it into a flat tensor
+# decode: turns the flat tensor into a tuple of image and direction tensors inside the forward pass
+class MultiDataEncoderDecoder:
+    def __init__(self, sample:[torch.tensor]):
+        self.shapes = [s.shape for s in sample]
+
+    def encode(self, inputs: []):
+        return torch.cat([s.flatten() for s in inputs])
+
+    def decode(self, x: torch.tensor):
+        original = []
+        start_idx = 0
+        for s in self.shapes:
+            s_len = 1
+            for dim in s:
+                s_len *= dim
+            original.append( x[start_idx : start_idx + s_len] )
+            start_idx += s_len
+        return original
+
+
 class Flatten(nn.Module):
     def __init__(self):
         super().__init__()
