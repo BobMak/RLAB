@@ -8,17 +8,17 @@ import wandb
 import torch.nn as nn
 import torch.optim
 
+from ExpBuffer import Buffer
+
 
 class DNNAgent:
     def __init__(self, inp, hid, out,
-                 useLSTM=False, nLayers=1, usewandb=False, env=None, device="cpu"):
+                 bufferLen, nLayers=1, env=None, device="cpu"):
         self.inp      = inp
         self.hid      = hid
         self.out      = out
         self.nls      = nLayers
-        self.use_lstm = useLSTM
         self.device   = torch.device(device)  # cpu
-        self.use_wandb= usewandb
         policy = []
         policy.append(nn.Linear(inp, hid))
         policy.append(nn.ReLU())
@@ -27,17 +27,8 @@ class DNNAgent:
             policy.append(nn.Linear(hid, hid))
             policy.append(nn.ReLU())
 
-        if useLSTM:
-            policy.append(nn.LSTM(hid, hid))
-            policy.append(nn.ReLU())
-            self.hidden_lstm = (torch.randn(1, 1, hid),
-                                torch.randn(1, 1, hid))
-            self.lstm_idx = len(policy) - 2
-            self.forward = self._forwardLSTM
-        else:
-            policy.append(nn.Linear(hid, hid))
-            policy.append(nn.ReLU())
-            self.forward = self._forward
+        policy.append(nn.Linear(hid, hid))
+        policy.append(nn.ReLU())
 
         policy.append(nn.Linear(hid, out))
         self.model = nn.Sequential(*policy).to(self.device)
@@ -50,29 +41,11 @@ class DNNAgent:
         else:
             self.env = env
 
-        self.train_states  = torch.zeros( ).to(self.device)
-        self.train_rewards = torch.zeros().to(self.device)
-        self.train_actions = []
+        self.buf = Buffer(inp, out, bufferLen)
         self.episode_breaks = []
 
     # forward function for a single state input
     def forward(self, x):
-        raise NotImplemented()
-
-    # this forward pass has to be done on a single state; passing a sequence will fail silently
-    def _forwardLSTM(self, x):
-        out = x
-        for layer in self.model[:self.lstm_idx]:
-            out = layer(out)
-        # LSTM requires hid vector from the previous pass
-        # ensure correct format for the backward pass
-        out = out.view(out.numel() // self.hid, 1, -1)
-        out, self.hidden_lstm = self.model[self.lstm_idx](out, self.hidden_lstm)
-        for layer in self.model[self.lstm_idx + 1:]:
-            out = layer(out)
-        return out
-
-    def _forward(self, x):
         return self.model(x)
 
     def setEnv(self, env):
@@ -86,22 +59,11 @@ class DNNAgent:
 
     # Save episode's rewards and state-actions
     def saveEpisode(self, states, rewards):
-        self.episode_breaks.append(
-            self.episode_breaks[-1] if len(self.episode_breaks) != 0 else 0 + \
-            len(states)
-        )
-        self.train_states = torch.stack([*self.train_states, *states])  # if grad preserved here?
-        self.train_rewards= torch.stack([*self.train_rewards, *rewards])
-        if self.use_lstm:
-            self.clearLSTMState()
+
 
     # gradient of one trajectory
     def backward(self):
         raise NotImplemented()
-
-    def clearLSTMState(self):
-        self.hidden_lstm = (torch.randn(1, 1, self.hid),
-                            torch.randn(1, 1, self.hid))
 
     def setInputModule(self, module):
         withInput = [module]

@@ -112,7 +112,8 @@ class PolicyGradients(DNNAgent):
     def getAllExpectedvalues(self, x):
         actions = self.train_actions
         if not self.isContinuous:
-            actions = oneHot(self.train_actions, )
+            actions = torch.tensor((np.arange(self.out) == [x-1 for x in self.train_actions]), dtype=torch.float32,
+                           device=self.device)
         state_action = torch.cat([x, torch.stack(actions)],  dim=-1)
         value = self.critic.forward(state_action)  #, dim=1
         return value

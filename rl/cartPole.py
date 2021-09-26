@@ -11,6 +11,10 @@ from utils.Cache import load_model, save_model
 from utils.EnvHelper import EnvHelper
 
 
+def discreetOutputHandler(x):
+    return x[0]
+
+
 if __name__ == "__main__":
     use_cached = False
     use_lstm = False
@@ -39,14 +43,6 @@ if __name__ == "__main__":
     # else:
     output_size = env.action_space.n
 
-    # policy = PolicyGradients(input_size,
-    #                         hidden_size,
-    #                         output_size,
-    #                         isContinuous=False,
-    #                         useLSTM=use_lstm,
-    #                         nLayers=2,
-    #                         usewandb=use_wandb)
-
     policy = PPO(input_size,
                 hidden_size,
                 output_size,
@@ -55,18 +51,7 @@ if __name__ == "__main__":
                 useLSTM=use_lstm,
                 nLayers=n_layers,
                 usewandb=use_wandb)
-    # model = ActorCritic(input_size,
-    #                      hidden_size,
-    #                      output_size,
-    #                      isContinuous=is_continuous,
-    #                      useLSTM=use_lstm,
-    #                      nLayers=2)
-    # policy = DQLearn(input_size,
-    #                  hidden_size,
-    #                  output_size,
-    #                  useLSTM=use_lstm,
-    #                  nLayers=5,
-    #                  usewandb=use_wandb)
+
     policy.setEnv(env_name)
     if use_cached:
         policy.load("cachedModels")
@@ -75,6 +60,7 @@ if __name__ == "__main__":
         if use_wandb:
             wandb.watch(policy.model, log="all")
         envHelper = EnvHelper(policy, env, batch_size=batch_size, epochs=epochs, normalize=normalize, success_reward=success_reward)
+        envHelper.setOutputHandler(discreetOutputHandler)
         envHelper.trainPolicy()
         policy.save("cachedModels")
 
