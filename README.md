@@ -1,6 +1,6 @@
 # RL Scratch paper Space
 
-This is a repo with several RL algorithm implementations and tests.   
+This is a repo with several RL algorithm implementations using PyTorch. 
 
 
 ## Installation
