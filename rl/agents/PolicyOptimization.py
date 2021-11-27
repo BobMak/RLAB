@@ -73,7 +73,7 @@ class PolicyGradients(Agent):
             actions = torch.cat([ means, std ], dim=len(means.shape) - 1)
         state_action = torch.cat([x, actions],  dim=len(actions.shape)-1)
         value = self.critic.forward(state_action)  #, dim=1
-        return value
+        return value*2
 
     # gradient of one trajectory
     def backward(self):

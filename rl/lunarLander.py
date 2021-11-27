@@ -31,7 +31,7 @@ if __name__ == "__main__":
     env.reset()
 
     if use_wandb:
-        wandb.init()
+        wandb.init(project="lunar-lander")
 
     print("action sample", env.action_space.sample())
     print("observation sample", env.observation_space.sample())
