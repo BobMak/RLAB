@@ -1,22 +1,20 @@
 import gym
 import wandb
 
-from agents import ActorCritic, PolicyOptimization
-from utils.Cache import load_model, save_model
 from utils.EnvHelper import EnvHelper
 from agents.PPO import PPO
 
 
 if __name__ == "__main__":
     use_cached = False
-    is_continuous = True
+    is_continuous = False
     use_lstm = False
     number_of_layers = 5
-    hidden_size = 64
+    hidden_size = 128
     batch_size = 1000
     batch_is_episode = False
-    epochs = 10
-    use_wandb = True
+    epochs = 200
+    use_wandb = False
 
     if is_continuous:
         env_name = "MountainCarContinuous-v0"
@@ -38,27 +36,15 @@ if __name__ == "__main__":
     else:
         output_size = env.action_space.n
 
-    # model = PolicyOptimization.PolicyGradients(input_size,
-    #                                             hidden_size,
-    #                                             output_size,
-    #                                             isContinuous=is_continuous,
-    #                                             useLSTM=use_lstm,
-    #                                             nLayers=number_of_layers,
-    #                                             usewandb=use_wandb)
-    # policy = ActorCritic.ActorCritic(input_size,
-    #                                  hidden_size,
-    #                                  output_size,
-    #                                  isContinuous=is_continuous,
-    #                                  useLSTM=use_lstm,
-    #                                  nLayers=number_of_layers,
-    #                                  usewandb=use_wandb)
     policy = PPO(input_size,
                  hidden_size,
                  output_size,
+                 clip_ratio=0.4,
                  isContinuous=is_continuous,
                  useLSTM=use_lstm,
                  nLayers=number_of_layers,
                  usewandb=use_wandb)
+
     policy.setEnv(env_name)
     if use_cached:
         policy.load("cachedModels")
@@ -67,7 +53,7 @@ if __name__ == "__main__":
         if use_wandb:
             wandb.watch(policy.model, log="all")
         envHelper = EnvHelper(policy, env, batch_size=batch_size, epochs=epochs, normalize=False)
-        envHelper.setComputeRewardsStrategy("rewardToGo")
+        envHelper.setComputeRewardsStrategy("rewardToGoDiscounted", gamma=0.98)
         envHelper.trainPolicy()
         policy.save("cachedModels")
 

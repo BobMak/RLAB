@@ -3,6 +3,7 @@ Policy Gradients implementation
 for continuous or discreet action spaces
 
 """
+import numpy as np
 import wandb
 import torch.nn as nn
 import torch.optim
@@ -14,8 +15,8 @@ from agents.Agent import Agent
 
 
 class PolicyGradients(Agent):
-    def __init__(self, inp, hid, out, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None):
-        super(PolicyGradients, self).__init__(inp, hid, out, useLSTM, nLayers, usewandb, env)
+    def __init__(self, inp, hid, out, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None, dev="cpu"):
+        super(PolicyGradients, self).__init__(inp, hid, out, useLSTM, nLayers, usewandb, env, dev)
         self.isContinuous = isContinuous
         # replace the discreet output with a continuous Gaussian output
         if isContinuous:
@@ -31,7 +32,7 @@ class PolicyGradients(Agent):
                 # nn.Sigmoid()
             ).to(self.device)
 
-        critic = [nn.Linear(inp+out, hid)]
+        critic = [nn.Linear(inp + out * (2 if isContinuous else 1), hid)]
         for layer in range(nLayers):
             critic.extend([nn.Linear(hid, hid), nn.ReLU()])
         self.critic = nn.Sequential(
@@ -54,7 +55,7 @@ class PolicyGradients(Agent):
         self.train_actions.append(sampled_action)
         if not self.isContinuous:
             sampled_action = sampled_action.item()
-        return sampled_action
+        return np.array(sampled_action)
 
     def getActionDistribution(self, x):
         distribution_params = self.forward(x)
@@ -64,10 +65,15 @@ class PolicyGradients(Agent):
             action_distribution = Categorical(logits=distribution_params)
         return action_distribution
 
-    def getExpectedvalue(self, x):
-        action = self.forward(x)
-        value = self.critic.forward(torch.cat([x, action], dim=1))
-        return value
+    def getExpectedvalues(self, x):
+        actions = self.forward(x)
+        if self.isContinuous:
+            means = actions[0]
+            std = actions[1].repeat(*means.shape[:-1], 1)
+            actions = torch.cat([ means, std ], dim=len(means.shape) - 1)
+        state_action = torch.cat([x, actions],  dim=len(actions.shape)-1)
+        value = self.critic.forward(state_action)  #, dim=1
+        return value*2
 
     # gradient of one trajectory
     def backward(self):

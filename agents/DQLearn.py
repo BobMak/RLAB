@@ -2,7 +2,6 @@ import numpy as np
 import wandb
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from agents.Agent import Agent
 
@@ -44,7 +43,7 @@ class DQLearn(Agent):
 
     def backward(self):
         pred = torch.stack(self.expRewards)
-        real = self.trainRewards
+        real = self.train_rewards
         # print(pred.dim(), real.dim())
         grad = ((pred - real)**2).mean()
         grad.backward()
@@ -53,7 +52,7 @@ class DQLearn(Agent):
         self.p_optimizer.zero_grad()
         if self.use_wandb:
             wandb.log ({ "awgReward": real.mean() } )
-        print("train reward", self.trainRewards.mean())
+        print("train reward", self.train_rewards.mean())
         # self.avgRewards = self.trainRewards.mean()
         self.buffCount += 1
         if self.buffCount >= self.buffLenght:
