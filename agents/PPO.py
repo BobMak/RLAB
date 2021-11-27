@@ -24,10 +24,13 @@ class PPO(PolicyGradients):
         critic_loss = torch.nn.MSELoss()(pred_values, r)
         print("critic loss", critic_loss)
         # todo add critic loss
-        # adv = torch.sub(r, pred_values.flatten())
+        adv = torch.sub(r, pred_values.flatten())
         if self.use_wandb:
             wandb.log({"avgReward": r.mean()})
         old_log_probs = torch.stack(self.log_probs).detach()
+        if self.isContinuous:
+            # r = r.unsqueeze(1)
+            adv = adv.unsqueeze(1)
         # update actor
         for _ in range(80):
             self.p_optimizer.zero_grad()
@@ -36,19 +39,19 @@ class PPO(PolicyGradients):
             log_probs = action_distributions.log_prob(actions)
             ratio = torch.exp(log_probs - old_log_probs)
             # clip it
-            surr1 = torch.clamp(ratio, min=1 - self.clip_ratio, max=1 + self.clip_ratio) * r.unsqueeze(1)
-            surr2 = ratio * r.unsqueeze(1)
+            surr1 = torch.clamp(ratio, min=1 - self.clip_ratio, max=1 + self.clip_ratio) * adv
+            surr2 = ratio * adv
             grad = torch.min( surr1, surr2 )
             grad = -grad.mean()
             grad.backward()
             self.p_optimizer.step()
         # update critic
-        # for _ in range(40):
-        #     self.c_optimizer.zero_grad()
-        #     pred_values = self.getExpectedvalues(self.train_states)
-        #     critic_loss = torch.nn.MSELoss()(pred_values.flatten(), r)
-        #     critic_loss.backward()
-        #     self.c_optimizer.step()
+        for _ in range(40):
+            self.c_optimizer.zero_grad()
+            pred_values = self.getExpectedvalues(self.train_states)
+            critic_loss = torch.nn.MSELoss()(pred_values.flatten(), r)
+            critic_loss.backward()
+            self.c_optimizer.step()
 
         print("\ntrain reward", self.train_rewards.mean())
         self.avg_rewards = self.train_rewards.mean()

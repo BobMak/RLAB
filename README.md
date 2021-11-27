@@ -1,8 +1,10 @@
-# ML Scratch paper Space
+# RL Scratch paper Space
 
-This is a repo with several ML model implementations and tests.   
+This is a repo with several RL algorithm implementations and tests.   
 
 
 ## Installation
 
-follow spinningup installation steps
+[install spinup](https://spinningup.openai.com/en/latest/user/installation.html)   
+[install torch](https://pytorch.org/get-started/locally/)
+[install wandb](https://anaconda.org/conda-forge/wandb)

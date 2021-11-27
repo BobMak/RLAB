@@ -1,28 +1,6 @@
 import numpy as np
-from scipy.constants import k
-from math import log, log2, log10
 import torch
 import torch.nn as nn
-from torch.distributions.categorical import Categorical
-from torch.distributions.normal import Normal
-
-
-class Flatten(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, x):
-        return torch.flatten(x)
-
-
-class MyFun(torch.autograd.Function):
-    def forward(self, inp):
-        return inp
-
-    def backward(self, grad_out):
-        grad_input = grad_out.clone()
-        print('Custom backward called!')
-        return grad_input
 
 
 class NormalOutput(nn.Module):
@@ -30,12 +8,10 @@ class NormalOutput(nn.Module):
         super().__init__()
         self.m = nn.Linear(inp, out)
         log_std = -0.5 * np.ones(out, dtype=np.float32)
-        self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))  # , requires_grad=True
-        # self.parallel = nn.Parallel(self.w1, self.w2)
+        self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
         self.act1 = activation
 
     def forward(self, inputs):
-        # res1 = self.act1(self.m(inputs))  # self.act1(
         mout = self.m(inputs)
         vout = torch.exp(self.log_std)
         return mout, vout

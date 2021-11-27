@@ -1,13 +1,7 @@
 import gym
-import torch
-import numpy as np
 import wandb
 
-from agents.ActorCritic import ActorCritic
-from agents.PolicyOptimization import PolicyGradients
 from agents.PPO import PPO
-from agents.DQLearn import DQLearn
-from utils.Cache import load_model, save_model
 from utils.EnvHelper import EnvHelper
 
 
@@ -34,18 +28,8 @@ if __name__ == "__main__":
     input_size = env.observation_space.shape[0]
     hidden_size = 32
     n_layers = 2
-    # if is_continuous:
-    #     output_size = env.action_space.shape[0]
-    # else:
-    output_size = env.action_space.n
 
-    # policy = PolicyGradients(input_size,
-    #                         hidden_size,
-    #                         output_size,
-    #                         isContinuous=False,
-    #                         useLSTM=use_lstm,
-    #                         nLayers=2,
-    #                         usewandb=use_wandb)
+    output_size = env.action_space.n
 
     policy = PPO(input_size,
                 hidden_size,
@@ -55,18 +39,7 @@ if __name__ == "__main__":
                 useLSTM=use_lstm,
                 nLayers=n_layers,
                 usewandb=use_wandb)
-    # model = ActorCritic(input_size,
-    #                      hidden_size,
-    #                      output_size,
-    #                      isContinuous=is_continuous,
-    #                      useLSTM=use_lstm,
-    #                      nLayers=2)
-    # policy = DQLearn(input_size,
-    #                  hidden_size,
-    #                  output_size,
-    #                  useLSTM=use_lstm,
-    #                  nLayers=5,
-    #                  usewandb=use_wandb)
+
     policy.setEnv(env_name)
     if use_cached:
         policy.load("cachedModels")
