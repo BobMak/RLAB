@@ -1,17 +1,28 @@
 """
 PPO implementation
 """
-
+import numpy as np
 import torch
 import wandb
 
 from agents.PolicyOptimization import PolicyGradients
 
 
-class PPO(PolicyGradients):
-    def __init__(self, inp, hid, out, clip_ratio=0.2, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None, dev="cpu"):
+class PPOCuriosityCount(PolicyGradients):
+    def __init__(self, inp, hid, out, envshape, curiosityDrop=0.001, clip_ratio=0.2, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None, dev="cpu"):
         super().__init__(inp, hid, out, isContinuous, useLSTM, nLayers, usewandb, env, dev)
         self.clip_ratio = clip_ratio
+        self.state_curiosity = np.ones([ 10, 10])
+        self.curiosity_drop = curiosityDrop
+        self.curiosity_rewards = np.zeros(1200)
+        self.idx = 0
+
+    def getAction(self, x):
+        idx = np.array(((x+1)*10 -1).numpy(), dtype=np.int32)
+        self.state_curiosity[idx[0]][idx[1]] -= self.curiosity_drop
+        self.curiosity_rewards[self.idx] = self.state_curiosity[idx[0]][idx[1]]
+        self.idx += 1
+        return super().getAction(x)
 
     # gradient of one trajectory
     def backward(self):
@@ -21,6 +32,7 @@ class PPO(PolicyGradients):
         r = (r - r.mean()) / (r.std() + 1e-10).detach()
         critic_loss = torch.nn.MSELoss()(pred_values, r)
         print("critic loss", critic_loss)
+        r = torch.add(r, torch.tensor(self.curiosity_rewards, dtype=torch.float32).to(self.device))
         adv = torch.sub(r, pred_values.flatten())
         if self.use_wandb:
             wandb.log({"avgReward": r.mean()})
@@ -55,6 +67,8 @@ class PPO(PolicyGradients):
         # Reset episode buffer
         self.train_rewards = torch.tensor([]).to(self.device)
         self.train_states  = torch.tensor([]).to(self.device)
+        self.curiosity_rewards = np.zeros(1200)
+        self.idx = 0
         self.log_probs     = []
         self.train_actions = []
         if self.use_lstm:
