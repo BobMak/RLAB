@@ -1,4 +1,6 @@
 from math import log, log2, log10
+
+import scipy.signal
 import torch
 import numpy as np
 
@@ -18,6 +20,24 @@ class EnvNormalizer:
         return (inp - self.mean) / self.var
 
 
+def discount_cumsum(x, discount):
+    """
+    magic from rllab for computing discounted cumulative sums of vectors.
+
+    input:
+        vector x,
+        [x0,
+         x1,
+         x2]
+
+    output:
+        [x0 + discount * x1 + discount^2 * x2,
+         x1 + discount * x2,
+         x2]
+    """
+    return scipy.signal.lfilter([1], [1, float(-discount)], x[::-1], axis=0)[::-1]
+
+
 class EnvHelper:
     def __init__(self, policy, env, batch_size=5000, epochs=10, normalize=False, batch_is_episode=False, success_reward=None):
         self.policy = policy
@@ -30,13 +50,8 @@ class EnvHelper:
         else:
             self.inputHandler = EnvVanillaInput()
 
-        self._window = 50     # sliding window reward assignment
-        self._gamma  = 0.995  # discounted future reward gamma 
-        self.setComputeRewardsStrategy("rewardToGoDiscounted")
+        self._gamma  = 0.995  # discounted future reward gamma
         self.success_reward = success_reward
-
-    def computeRewards(self, rewards) -> [torch.Tensor]:
-        return None
 
     def rewardToGo(self, rewards):
         expRewrads = []
@@ -46,16 +61,23 @@ class EnvHelper:
                                           device=self.policy.device))
         return expRewrads
 
-    def rewardToGoDiscounted(self, rewards):
+    def rewardToGoDiscounted(self, rewards, gamma=0.995):
         expRewrads = []
         for i in range(len(rewards)):
             r = 0
             for idx, _r in enumerate(rewards[i:]):
-                r += _r * ( self._gamma**idx )
+                r += _r * ( gamma**idx )
             expRewrads.append(torch.as_tensor([r],
                                           dtype=torch.float32,
                                           device=self.policy.device))
         return expRewrads
+
+    def rewardToGoDiscExpectation(self, rewards, obs, failed=True, gamma=0.995):
+        """discounted to go reward, with added expectation of future rewards
+        if the episode finished without termination"""
+        expectedAfter = self.policy.getExpectedValues(obs)
+        return discount_cumsum(rewards, gamma)+discount_cumsum([expectedAfter[0].item()]*400, gamma)[:len(rewards)-1:-1]
+
 
     def rewardSum(self, rewards):
         expRewrads = []
@@ -64,26 +86,6 @@ class EnvHelper:
                                           dtype=torch.float32,
                                           device=self.policy.device))
         return expRewrads
-
-    def rewardSlidingWindow(self, rewards):
-        expRewrads = []
-        for i in range(len(rewards)):
-            idx_min = min(i, len(rewards) - self._window - 1)
-            idx_max = min(len(rewards) - 1, i + self._window)
-            expRewrads.append(torch.as_tensor([sum(rewards[idx_min:idx_max])],
-                                              dtype=torch.float32,
-                                              device=self.policy.device))
-        return expRewrads
-
-    def setComputeRewardsStrategy(self, strategy:str, gamma=0.995, window=50):
-        self._gamma  = gamma
-        self._window = window
-        self.computeRewards = {
-            "rewardToGo": self.rewardToGo,
-            "rewardToGoDiscounted": self.rewardToGoDiscounted,
-            "rewardSum": self.rewardSum,
-            "rewardSlidingWindow": self.rewardSlidingWindow
-        }[strategy]
 
     def trainPolicy(self):
         states = []
@@ -105,19 +107,18 @@ class EnvHelper:
                 obs = torch.from_numpy(obs)
                 obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
                 rewards.append(reward)
-                if done:
-                    self.policy.saveEpisode(states, self.computeRewards(rewards))
-                    obs_raw = self.inputHandler(self.env.reset())
-                    obs = torch.from_numpy(obs_raw)
-                    obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
-                    states  = []
-                    actions = []
-                    rewards = []
-                    if sa_count > self.batch_size or self.batch_is_episode:
-                        if self.success_reward and self.success_reward <= sum(rewards):
-                            print(f"policy has reached optimal performance with avg score {sum(rewards)}")
-                            return self.policy
-                        break
+                if done or sa_count > self.batch_size:
+                    break
+            self.policy.saveEpisode(states, self.rewardSum(rewards))  # self.rewardToGoDiscExpectation(rewards, obs)
+            obs_raw = self.inputHandler(self.env.reset())
+            obs = torch.from_numpy(obs_raw)
+            obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
+            states  = []
+            actions = []
+            rewards = []
+            if self.success_reward and self.success_reward <= sum(rewards):
+                print(f"policy has reached optimal performance with avg score {sum(rewards)}")
+                return self.policy
             self.policy.backward()
         return self.policy
 

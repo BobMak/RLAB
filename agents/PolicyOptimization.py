@@ -65,7 +65,7 @@ class PolicyGradients(Agent):
             action_distribution = Categorical(logits=distribution_params)
         return action_distribution
 
-    def getExpectedvalues(self, x):
+    def getExpectedValues(self, x):
         actions = self.forward(x)
         if self.isContinuous:
             means = actions[0]

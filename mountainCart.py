@@ -8,13 +8,13 @@ from agents.PPOCuriosityCount import PPOCuriosityCount
 
 if __name__ == "__main__":
     use_cached = False
-    is_continuous = False
+    is_continuous = True
     use_lstm = False
-    number_of_layers = 5
-    hidden_size = 128
-    batch_size = 1000
+    number_of_layers = 3
+    hidden_size = 32
+    batch_size = 2000
     batch_is_episode = False
-    epochs = 200
+    epochs = 20
     use_wandb = False
 
     if is_continuous:
@@ -47,14 +47,15 @@ if __name__ == "__main__":
     #              usewandb=use_wandb)
 
     policy = PPOCuriosityCount(input_size,
-                 hidden_size,
-                 output_size,
-                 env.observation_space.shape,
-                 clip_ratio=0.4,
-                 isContinuous=is_continuous,
-                 useLSTM=use_lstm,
-                 nLayers=number_of_layers,
-                 usewandb=use_wandb)
+                hidden_size,
+                output_size,
+                env.observation_space.shape,
+                batch_size,
+                clip_ratio=0.4,
+                isContinuous=is_continuous,
+                useLSTM=use_lstm,
+                nLayers=number_of_layers,
+                usewandb=use_wandb)
 
     policy.setEnv(env_name)
     if use_cached:
@@ -64,7 +65,6 @@ if __name__ == "__main__":
         if use_wandb:
             wandb.watch(policy.model, log="all")
         envHelper = EnvHelper(policy, env, batch_size=batch_size, epochs=epochs, normalize=False)
-        envHelper.setComputeRewardsStrategy("rewardToGoDiscounted", gamma=0.98)
         envHelper.trainPolicy()
         policy.save("cachedModels")
 

@@ -16,7 +16,7 @@ class PPO(PolicyGradients):
     # gradient of one trajectory
     def backward(self):
         actions = torch.stack(self.train_actions)
-        pred_values = self.getExpectedvalues(self.train_states).detach()
+        pred_values = self.getExpectedValues(self.train_states).detach()
         r = self.train_rewards
         r = (r - r.mean()) / (r.std() + 1e-10).detach()
         critic_loss = torch.nn.MSELoss()(pred_values, r)
@@ -45,7 +45,7 @@ class PPO(PolicyGradients):
         # update critic
         for _ in range(40):
             self.c_optimizer.zero_grad()
-            pred_values = self.getExpectedvalues(self.train_states)
+            pred_values = self.getExpectedValues(self.train_states)
             critic_loss = torch.nn.MSELoss()(pred_values.flatten(), r)
             critic_loss.backward()
             self.c_optimizer.step()
