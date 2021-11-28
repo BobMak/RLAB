@@ -10,11 +10,11 @@ if __name__ == "__main__":
     use_cached = False
     is_continuous = True
     use_lstm = False
-    number_of_layers = 3
+    number_of_layers = 2
     hidden_size = 32
-    batch_size = 2000
+    batch_size = 500
     batch_is_episode = False
-    epochs = 20
+    epochs = 100
     use_wandb = False
 
     if is_continuous:
@@ -51,7 +51,7 @@ if __name__ == "__main__":
                 output_size,
                 env.observation_space.shape,
                 batch_size,
-                clip_ratio=0.4,
+                clip_ratio=0.8,
                 isContinuous=is_continuous,
                 useLSTM=use_lstm,
                 nLayers=number_of_layers,

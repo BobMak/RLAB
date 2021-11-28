@@ -41,6 +41,8 @@ def discount_cumsum(x, discount):
 class EnvHelper:
     def __init__(self, policy, env, batch_size=5000, epochs=10, normalize=False, batch_is_episode=False, success_reward=None):
         self.policy = policy
+        self.best_policy = None
+        self.best_policy_reward = -1e10
         self.epochs = epochs
         self.env = env
         self.batch_size = batch_size
@@ -76,7 +78,7 @@ class EnvHelper:
         """discounted to go reward, with added expectation of future rewards
         if the episode finished without termination"""
         expectedAfter = self.policy.getExpectedValues(obs)
-        return discount_cumsum(rewards, gamma)+discount_cumsum([expectedAfter[0].item()]*400, gamma)[:len(rewards)-1:-1]
+        return discount_cumsum(rewards, gamma)+discount_cumsum([expectedAfter[0].item()]*len(rewards), gamma)[::-1]
 
 
     def rewardSum(self, rewards):
@@ -107,9 +109,14 @@ class EnvHelper:
                 obs = torch.from_numpy(obs)
                 obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
                 rewards.append(reward)
-                if done or sa_count > self.batch_size:
+                if done or sa_count >= self.batch_size:
                     break
+            if sum(rewards) > self.best_policy_reward:
+                self.best_policy = self.policy
+                self.best_policy_reward = sum(rewards)
             self.policy.saveEpisode(states, self.rewardSum(rewards))  # self.rewardToGoDiscExpectation(rewards, obs)
+            # self.policy.saveEpisode(states, self.rewardToGoDiscExpectation(rewards, obs))
+            # self.policy.saveEpisode(states, self.rewardToGoDiscounted(rewards))
             obs_raw = self.inputHandler(self.env.reset())
             obs = torch.from_numpy(obs_raw)
             obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
@@ -126,22 +133,23 @@ class EnvHelper:
         obs = self.inputHandler(self.env.reset())
         obs = torch.from_numpy(obs)
         obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
-        print("testing")
+        print("testing best policy")
+        self.best_policy.setTraining(False)
         for _ in range(10):
             rewards = []
             done = False
             while not done:
                 self.env.render()
-                action = self.policy.getAction(obs)  #.detach()  # .cpu().numpy()
+                action = self.best_policy.getAction(obs)  #.detach()  # .cpu().numpy()
                 obs, reward, done, info = self.env.step(action)
                 obs = np.array(self.inputHandler(obs), dtype=float)
                 obs = torch.from_numpy(obs)
-                obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
+                obs = torch.as_tensor(obs, dtype=torch.float32, device=self.best_policy.device)
                 rewards.append(reward)
             print("test rewards", sum(rewards))
             obs = self.inputHandler(self.env.reset())
             obs = torch.from_numpy(obs)
-            obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
+            obs = torch.as_tensor(obs, dtype=torch.float32, device=self.best_policy.device)
 
 
 def entropy( probabilities:[], base=None ):

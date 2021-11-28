@@ -49,6 +49,10 @@ class Agent:
         self.train_states  = torch.tensor([]).to(self.device)
         self.train_rewards = torch.tensor([]).to(self.device)
         self.train_actions = []
+        self.training = True
+
+    def setTraining(self, training):
+        self.training = training
 
     def forward(self, x):
         if self.use_lstm:
