@@ -10,10 +10,11 @@ from agents.PolicyOptimization import PolicyGradients
 
 
 class PPOCuriosityCount(PolicyGradients):
-    def __init__(self, inp, hid, out, envshape, batch_size, curiosityStateGranularity=10, curiosityDrop=0.0001, clip_ratio=0.2, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None, dev="cpu"):
+    def __init__(self, inp, hid, out, envshape, batch_size, curiosityStateGranularity=30, curiosityDrop=0.001, clip_ratio=0.2, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None, dev="cpu"):
         super().__init__(inp, hid, out, isContinuous, useLSTM, nLayers, usewandb, env, dev)
         self.clip_ratio = clip_ratio
-        self.state_curiosity = np.ones([ curiosityStateGranularity, curiosityStateGranularity]) * 0.1
+        self.curiosityMultiplier = 1.0
+        self.state_curiosity = np.ones([ curiosityStateGranularity, curiosityStateGranularity]) * self.curiosityMultiplier
         self.curiosity_drop = curiosityDrop
         self.curiosity_rewards = np.zeros(batch_size)
         self.curiosityStateGranularity = curiosityStateGranularity
@@ -34,13 +35,13 @@ class PPOCuriosityCount(PolicyGradients):
             idx = np.array(((x+1)/2*self.curiosityStateGranularity).numpy(), dtype=np.int32)
             # reduce curiosity for that state, but don't drop below zero
             self.state_curiosity[idx[0]][idx[1]] = \
-                max(-1.5, self.state_curiosity[idx[0]][idx[1]] - self.curiosity_drop)
+                max(0, self.state_curiosity[idx[0]][idx[1]] - self.curiosity_drop)
             self.curiosity_rewards[self.idx] = self.state_curiosity[idx[0]][idx[1]]
             self.idx += 1
             # update curiosity plot every 100 steps
             if self.idx % 100 == 0:
                 self.ax.clear()
-                self.ax.imshow(self.state_curiosity, cmap='hot', interpolation='nearest')
+                self.ax.imshow(self.state_curiosity, cmap='hot', interpolation='nearest', vmin=0, vmax=self.curiosityMultiplier)
                 self.fig.canvas.draw()
                 self.fig.canvas.flush_events()
         return super().getAction(x)
@@ -52,11 +53,11 @@ class PPOCuriosityCount(PolicyGradients):
     def backward(self):
         actions = torch.stack(self.train_actions)
         pred_values = self.getExpectedValues(self.train_states).detach()
-        r = self.train_rewards
+        r = torch.add(self.train_rewards, torch.tensor(self.curiosity_rewards[:len(self.train_states)], dtype=torch.float32).to(self.device))
         r = (r - r.mean()) / (r.std() + 1e-10).detach()
         critic_loss = torch.nn.MSELoss()(pred_values, r)
         print("critic loss", critic_loss)
-        r = torch.add(r, torch.tensor(self.curiosity_rewards[:len(r)], dtype=torch.float32).to(self.device))
+        r += torch.tensor(self.curiosity_rewards[:len(r)], dtype=torch.float32).to(self.device)
         adv = torch.sub(r, pred_values.flatten())
         if self.use_wandb:
             wandb.log({"avgReward": r.mean()})
@@ -83,7 +84,7 @@ class PPOCuriosityCount(PolicyGradients):
             grad.backward()
             self.p_optimizer.step()
         # update critic
-        for _ in range(40):
+        for _ in range(80):
             self.c_optimizer.zero_grad()
             pred_values = self.getExpectedValues(self.train_states)
             critic_loss = torch.nn.MSELoss()(pred_values.flatten(), r)

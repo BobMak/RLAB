@@ -114,8 +114,8 @@ class EnvHelper:
             if sum(rewards) > self.best_policy_reward:
                 self.best_policy = self.policy
                 self.best_policy_reward = sum(rewards)
-            self.policy.saveEpisode(states, self.rewardSum(rewards))  # self.rewardToGoDiscExpectation(rewards, obs)
-            # self.policy.saveEpisode(states, self.rewardToGoDiscExpectation(rewards, obs))
+            # self.policy.saveEpisode(states, self.rewardSum(rewards))  # self.rewardToGoDiscExpectation(rewards, obs)
+            self.policy.saveEpisode(states, self.rewardToGoDiscExpectation(rewards, obs))
             # self.policy.saveEpisode(states, self.rewardToGoDiscounted(rewards))
             obs_raw = self.inputHandler(self.env.reset())
             obs = torch.from_numpy(obs_raw)

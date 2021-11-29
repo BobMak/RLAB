@@ -10,12 +10,16 @@ if __name__ == "__main__":
     use_cached = False
     is_continuous = True
     use_lstm = False
-    number_of_layers = 2
+    number_of_layers = 4
     hidden_size = 32
-    batch_size = 500
+    batch_size = 200
     batch_is_episode = False
-    epochs = 100
+    epochs = 200
     use_wandb = False
+
+    curiosityStateGranularity = 30
+    curiosityDrop = 0.001
+    clip_ratio = 0.02
 
     if is_continuous:
         env_name = "MountainCarContinuous-v0"
@@ -51,7 +55,9 @@ if __name__ == "__main__":
                 output_size,
                 env.observation_space.shape,
                 batch_size,
-                clip_ratio=0.8,
+                curiosityStateGranularity=curiosityStateGranularity,
+                curiosityDrop=curiosityDrop,
+                clip_ratio=clip_ratio,
                 isContinuous=is_continuous,
                 useLSTM=use_lstm,
                 nLayers=number_of_layers,
