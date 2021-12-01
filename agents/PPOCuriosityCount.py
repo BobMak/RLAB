@@ -1,10 +1,13 @@
 """
 PPO implementation
 """
+import copy
+
 import numpy as np
 import torch
 import wandb
 import matplotlib.pyplot as plt
+from torch.distributions import Normal, Categorical
 
 from agents.PolicyOptimization import PolicyGradients
 
@@ -45,9 +48,6 @@ class PPOCuriosityCount(PolicyGradients):
                 self.fig.canvas.draw()
                 self.fig.canvas.flush_events()
         return super().getAction(x)
-
-    # def resetCuriosity(self):
-
 
     # gradient of one trajectory
     def backward(self):

@@ -34,7 +34,7 @@ if __name__ == "__main__":
     policy = PPO(input_size,
                 hidden_size,
                 output_size,
-                clip_ratio=0.2,
+                clip_ratio=0.4,
                 isContinuous=False,
                 useLSTM=use_lstm,
                 nLayers=n_layers,

@@ -109,20 +109,29 @@ class EnvHelper:
                 obs = torch.from_numpy(obs)
                 obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
                 rewards.append(reward)
-                if done or sa_count >= self.batch_size:
+                if done:
+                    self.policy.saveEpisode(states, self.rewardToGoDiscExpectation(rewards, obs))
+                    states = []
+                    actions = []
+                    rewards = []
+                    obs_raw = self.inputHandler(self.env.reset())
+                    obs = torch.from_numpy(obs_raw)
+                    obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
+                if sa_count >= self.batch_size:
+                    self.policy.saveEpisode(states, self.rewardToGoDiscExpectation(rewards, obs))
+                    states = []
+                    actions = []
+                    rewards = []
+                    obs_raw = self.inputHandler(self.env.reset())
+                    obs = torch.from_numpy(obs_raw)
+                    obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
                     break
             if sum(rewards) > self.best_policy_reward:
                 self.best_policy = self.policy
                 self.best_policy_reward = sum(rewards)
             # self.policy.saveEpisode(states, self.rewardSum(rewards))  # self.rewardToGoDiscExpectation(rewards, obs)
-            self.policy.saveEpisode(states, self.rewardToGoDiscExpectation(rewards, obs))
             # self.policy.saveEpisode(states, self.rewardToGoDiscounted(rewards))
-            obs_raw = self.inputHandler(self.env.reset())
-            obs = torch.from_numpy(obs_raw)
-            obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
-            states  = []
-            actions = []
-            rewards = []
+
             if self.success_reward and self.success_reward <= sum(rewards):
                 print(f"policy has reached optimal performance with avg score {sum(rewards)}")
                 return self.policy

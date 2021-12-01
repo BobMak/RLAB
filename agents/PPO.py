@@ -1,9 +1,11 @@
 """
 PPO implementation
 """
+import copy
 
 import torch
 import wandb
+from torch.distributions import Normal, Categorical
 
 from agents.PolicyOptimization import PolicyGradients
 
