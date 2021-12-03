@@ -2,12 +2,19 @@
 PPO implementation
 """
 import copy
+import logging
 
 import torch
 import wandb
 from torch.distributions import Normal, Categorical
 
 from agents.PolicyOptimization import PolicyGradients
+
+logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S')
+log = logging.getLogger()
 
 
 class PPO(PolicyGradients):
@@ -22,7 +29,6 @@ class PPO(PolicyGradients):
         r = self.train_rewards
         r = (r - r.mean()) / (r.std() + 1e-10).detach()
         critic_loss = torch.nn.MSELoss()(pred_values, r)
-        print("critic loss", critic_loss)
         adv = torch.sub(r, pred_values.flatten())
         if self.use_wandb:
             wandb.log({"avgReward": r.mean()})
@@ -52,7 +58,8 @@ class PPO(PolicyGradients):
             critic_loss.backward()
             self.c_optimizer.step()
 
-        print("\ntrain reward", self.train_rewards.mean())
+        log.debug("train reward " + str(round(self.train_rewards.mean().item(), 3))
+                 + "critic loss " + str(round(critic_loss.mean().item(), 3)))
         self.avg_rewards = self.train_rewards.mean()
         # Reset episode buffer
         self.train_rewards = torch.tensor([]).to(self.device)

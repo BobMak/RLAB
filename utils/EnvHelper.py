@@ -1,8 +1,15 @@
-from math import log, log2, log10
+import copy
 
 import scipy.signal
 import torch
 import numpy as np
+import logging
+
+logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S')
+log = logging.getLogger()
 
 
 class EnvVanillaInput:
@@ -99,6 +106,8 @@ class EnvHelper:
             obs = torch.from_numpy(obs_raw)
             obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
             sa_count = 0
+            total_rew = 0
+            n_episodes = 0
             while True:
                 sa_count += 1
                 action = self.policy.getAction(obs)
@@ -110,60 +119,53 @@ class EnvHelper:
                 obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
                 rewards.append(reward)
                 if done:
+                    n_episodes += 1
                     self.policy.saveEpisode(states, self.rewardToGoDiscExpectation(rewards, obs))
+                    # self.policy.saveEpisode(states, self.rewardToGoDiscounted(rewards))
+                    total_rew += sum(rewards)
                     states = []
                     actions = []
                     rewards = []
                     obs_raw = self.inputHandler(self.env.reset())
                     obs = torch.from_numpy(obs_raw)
                     obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
-                if sa_count >= self.batch_size:
-                    self.policy.saveEpisode(states, self.rewardToGoDiscExpectation(rewards, obs))
-                    states = []
-                    actions = []
-                    rewards = []
-                    obs_raw = self.inputHandler(self.env.reset())
-                    obs = torch.from_numpy(obs_raw)
-                    obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
-                    break
-            if sum(rewards) > self.best_policy_reward:
-                self.best_policy = self.policy
-                self.best_policy_reward = sum(rewards)
-            # self.policy.saveEpisode(states, self.rewardSum(rewards))  # self.rewardToGoDiscExpectation(rewards, obs)
-            # self.policy.saveEpisode(states, self.rewardToGoDiscounted(rewards))
+                    if sa_count >= self.batch_size:
+                        break
+            # save the policy if total rewards in all episodes is higher than the best policy
+            if total_rew/n_episodes > self.best_policy_reward:
+                self.best_policy = copy.deepcopy(self.policy.model)
+                self.best_policy_reward = total_rew/n_episodes
+                log.info("New best policy, avg reward " + str(total_rew/n_episodes))
 
             if self.success_reward and self.success_reward <= sum(rewards):
-                print(f"policy has reached optimal performance with avg score {sum(rewards)}")
+                log.info(f"policy has reached optimal performance with avg score {sum(rewards)}")
                 return self.policy
             self.policy.backward()
+        self.policy.model = self.best_policy
         return self.policy
 
     def evalueatePolicy(self):
         obs = self.inputHandler(self.env.reset())
         obs = torch.from_numpy(obs)
         obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
-        print("testing best policy")
-        self.best_policy.setTraining(False)
+        log.info("testing best policy")
+        self.policy.setTraining(False)
         for _ in range(10):
             rewards = []
             done = False
             while not done:
                 self.env.render()
-                action = self.best_policy.getAction(obs)  #.detach()  # .cpu().numpy()
+                action = self.policy.getAction(obs)  #.detach()  # .cpu().numpy()
                 obs, reward, done, info = self.env.step(action)
                 obs = np.array(self.inputHandler(obs), dtype=float)
                 obs = torch.from_numpy(obs)
-                obs = torch.as_tensor(obs, dtype=torch.float32, device=self.best_policy.device)
+                obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
                 rewards.append(reward)
-            print("test rewards", sum(rewards))
+            log.info("test rewards " + str(round(sum(rewards), 3)))
             obs = self.inputHandler(self.env.reset())
             obs = torch.from_numpy(obs)
-            obs = torch.as_tensor(obs, dtype=torch.float32, device=self.best_policy.device)
+            obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
 
-
-def entropy( probabilities:[], base=None ):
-    logFu = { None:log, 2: log2, 10:log10 }[base]
-    return -sum( [ p * logFu(p) for p in probabilities ] )
 
 
 

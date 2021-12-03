@@ -1,7 +1,16 @@
 import gym
 import wandb
+import logging
+
+logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S')
+log = logging.getLogger()
 
 from agents.PPO import PPO
+
+
 from utils.EnvHelper import EnvHelper
 
 
@@ -11,10 +20,13 @@ if __name__ == "__main__":
     use_wandb = False
     is_continuous = True
 
-    batch_size = 2000
-    epochs= 50
+    batch_size = 8000
+    epochs= 20
     success_reward = 200
     normalize = False
+    hidden_size = 32
+    n_layers = 4
+    clip_ratio = 0.2
 
     if is_continuous:
         env_name = "LunarLanderContinuous-v2"
@@ -36,13 +48,11 @@ if __name__ == "__main__":
         output_size = env.action_space.shape[0]
     else:
         output_size = env.action_space.n
-    hidden_size = 32
-    n_layers = 2
 
     policy = PPO(input_size,
                 hidden_size,
                 output_size,
-                clip_ratio=0.4,
+                clip_ratio=clip_ratio,
                 isContinuous=is_continuous,
                 useLSTM=use_lstm,
                 nLayers=n_layers,
