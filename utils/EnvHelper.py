@@ -5,6 +5,8 @@ import torch
 import numpy as np
 import logging
 
+import wandb
+
 logging.basicConfig(
     format='%(asctime)s %(levelname)-8s %(message)s',
     level=logging.INFO,
@@ -118,11 +120,12 @@ class EnvHelper:
                 obs = torch.from_numpy(obs)
                 obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
                 rewards.append(reward)
+                # episode finished
                 if done:
                     n_episodes += 1
+                    total_rew += sum(rewards)
                     self.policy.saveEpisode(states, self.rewardToGoDiscExpectation(rewards, obs))
                     # self.policy.saveEpisode(states, self.rewardToGoDiscounted(rewards))
-                    total_rew += sum(rewards)
                     states = []
                     actions = []
                     rewards = []
@@ -131,12 +134,14 @@ class EnvHelper:
                     obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
                     if sa_count >= self.batch_size:
                         break
+
             # save the policy if total rewards in all episodes is higher than the best policy
             if total_rew/n_episodes > self.best_policy_reward:
                 self.best_policy = copy.deepcopy(self.policy.model)
                 self.best_policy_reward = total_rew/n_episodes
-                log.info("New best policy, avg reward " + str(total_rew/n_episodes))
-
+                log.info("New best, reward " + str(round(total_rew/n_episodes, 3))
+                         + ", n_episodes " + str(n_episodes))
+            # exit early if the policy is good enough
             if self.success_reward and self.success_reward <= sum(rewards):
                 log.info(f"policy has reached optimal performance with avg score {sum(rewards)}")
                 return self.policy
@@ -144,17 +149,19 @@ class EnvHelper:
         self.policy.model = self.best_policy
         return self.policy
 
-    def evalueatePolicy(self):
+    def evalueatePolicy(self, n_runs=10, render=True, use_wandb=False):
         obs = self.inputHandler(self.env.reset())
         obs = torch.from_numpy(obs)
         obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
         log.info("testing best policy")
         self.policy.setTraining(False)
-        for _ in range(10):
+        total_rew = 0
+        for _ in range(n_runs):
             rewards = []
             done = False
             while not done:
-                self.env.render()
+                if render:
+                    self.env.render()
                 action = self.policy.getAction(obs)  #.detach()  # .cpu().numpy()
                 obs, reward, done, info = self.env.step(action)
                 obs = np.array(self.inputHandler(obs), dtype=float)
@@ -162,9 +169,13 @@ class EnvHelper:
                 obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
                 rewards.append(reward)
             log.info("test rewards " + str(round(sum(rewards), 3)))
+            total_rew += sum(rewards)
             obs = self.inputHandler(self.env.reset())
             obs = torch.from_numpy(obs)
             obs = torch.as_tensor(obs, dtype=torch.float32, device=self.policy.device)
+        if use_wandb:
+            wandb.log({"avg_reward": total_rew/n_runs})
+
 
 
 

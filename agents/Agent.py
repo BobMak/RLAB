@@ -50,6 +50,7 @@ class Agent:
         self.train_rewards = torch.tensor([]).to(self.device)
         self.train_actions = []
         self.training = True
+        self.avg_reward = 0
 
     def setTraining(self, training):
         self.training = training
@@ -80,6 +81,7 @@ class Agent:
 
     # Save episode's rewards and state-actions
     def saveEpisode(self, states, rewards):
+        self.avg_reward = sum(rewards)/len(rewards)
         self.train_states = torch.cat([self.train_states,
                                        torch.as_tensor(states, dtype=torch.float32, device=self.device)])
         self.train_rewards= torch.cat([self.train_rewards,
