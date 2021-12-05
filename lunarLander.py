@@ -116,28 +116,28 @@ def train_lander(batch_size, epochs, success_reward, hidden_size, n_layers, clip
 
 if __name__ == "__main__":
     # manual
-    # batch_size = 12000
-    # epochs = 80
-    # success_reward = 200
-    # hidden_size = 42
-    # n_layers = 2
-    # clip_ratio = 0.15
-    # train_lander(
-    #     batch_size,
-    #     epochs,
-    #     success_reward,
-    #     hidden_size,
-    #     n_layers,
-    #     clip_ratio,
-    #     use_wandb=False,
-    #     use_cached=False,
-    #     use_lstm=False,
-    #     eval_render=True,
-    #     eval_episodes=5
-    # )
+    batch_size = 29000
+    epochs = 80
+    success_reward = 200
+    hidden_size = 19
+    n_layers = 2
+    clip_ratio = 0.3
+    train_lander(
+        batch_size,
+        epochs,
+        success_reward,
+        hidden_size,
+        n_layers,
+        clip_ratio,
+        use_wandb=False,
+        use_cached=True,
+        use_lstm=False,
+        eval_render=True,
+        eval_episodes=5
+    )
 
     # sweep
-    sweep(100)
+    # sweep(100)
 
 
 
