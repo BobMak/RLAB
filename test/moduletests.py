@@ -10,6 +10,7 @@ import gym
 from utils.EnvHelper import EnvNormalizer
 from utils.Modules import NormalOutput
 
+
 class TestNormalizer(unittest.TestCase):
     def setUp(self):
         self.env = gym.make("CartPole-v0")
@@ -96,7 +97,6 @@ class TestNormalModule(unittest.TestCase):
         self.assertAlmostEqual(action_distribution.mean, trueDistibution.mean, delta=.2)
         self.assertAlmostEqual(action_distribution.stddev, trueDistibution.stddev, delta=.2)
         # self.assertAlmostEqual(y, sampled_action, delta=.2)
-
 
     def test_learning(self):
         normal = NormalOutput(1, 1)

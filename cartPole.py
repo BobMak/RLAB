@@ -9,8 +9,8 @@ if __name__ == "__main__":
     use_cached = False
     use_lstm = False
     use_wandb = False
-    env_name = "CartPole-v0"
-    batch_size = 2000
+    env_name = "Pendulum-v0"
+    batch_size = 20000
     epochs= 30
     success_reward = 200
     normalize = False
@@ -26,16 +26,16 @@ if __name__ == "__main__":
     print("env observation", env.observation_space.shape[0])
 
     input_size = env.observation_space.shape[0]
-    hidden_size = 32
+    hidden_size = 8
     n_layers = 2
 
-    output_size = env.action_space.n
+    output_size = env.action_space.shape[0]
 
     policy = PPO(input_size,
                 hidden_size,
                 output_size,
-                clip_ratio=0.4,
-                isContinuous=False,
+                clip_ratio=0.2,
+                isContinuous=True,
                 useLSTM=use_lstm,
                 nLayers=n_layers,
                 usewandb=use_wandb)
@@ -47,7 +47,12 @@ if __name__ == "__main__":
     else:
         if use_wandb:
             wandb.watch(policy.model, log="all")
-        envHelper = EnvHelper(policy, env, batch_size=batch_size, epochs=epochs, normalize=normalize, success_reward=success_reward)
+        envHelper = EnvHelper(policy,
+                              env,
+                              batch_size=batch_size,
+                              epochs=epochs,
+                              normalize=normalize,
+                              success_reward=success_reward)
         envHelper.trainPolicy()
         policy.save("cachedModels")
 
