@@ -18,8 +18,8 @@ log = logging.getLogger()
 
 
 class PPO(PolicyGradients):
-    def __init__(self, inp, hid, out, clip_ratio=0.2, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None, dev="cpu"):
-        super().__init__(inp, hid, out, isContinuous, useLSTM, nLayers, usewandb, env, dev)
+    def __init__(self, inp, hid, out, clip_ratio=0.2, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None, dev="cpu", action_arr=False):
+        super().__init__(inp, hid, out, isContinuous, useLSTM, nLayers, usewandb, env, dev, action_arr=action_arr)
         self.clip_ratio = clip_ratio
 
     # gradient of one trajectory
@@ -34,7 +34,6 @@ class PPO(PolicyGradients):
             wandb.log({"avgReward": r.mean()})
         old_log_probs = torch.stack(self.log_probs).detach()
         if self.isContinuous:
-            # r = r.unsqueeze(1)
             adv = adv.unsqueeze(1)
         # update actor
         for _ in range(80):
@@ -43,7 +42,6 @@ class PPO(PolicyGradients):
             action_distributions = self.getActionDistribution(self.train_states)
             log_probs = action_distributions.log_prob(actions)
             ratio = torch.exp(log_probs - old_log_probs)
-            # clip it
             surr1 = torch.clamp(ratio, min=1 - self.clip_ratio, max=1 + self.clip_ratio) * adv
             surr2 = ratio * adv
             grad = torch.min( surr1, surr2 )

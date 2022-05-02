@@ -139,8 +139,7 @@ class EnvHelper:
             if total_rew/n_episodes > self.best_policy_reward:
                 self.best_policy = copy.deepcopy(self.policy.model)
                 self.best_policy_reward = total_rew/n_episodes
-                log.info("New best, reward " + str(round(total_rew/n_episodes, 3))
-                         + ", n_episodes " + str(n_episodes))
+                log.info(f"New best, reward {total_rew/n_episodes} n_episodes {str(n_episodes)}")
             # exit early if the policy is good enough
             if self.success_reward and self.success_reward <= sum(rewards):
                 log.info(f"policy has reached optimal performance with avg score {sum(rewards)}")

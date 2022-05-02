@@ -4,6 +4,7 @@ import wandb
 from utils.EnvHelper import EnvHelper
 from agents.PPO import PPO
 from agents.PPOCuriosityCount import PPOCuriosityCount
+from agents.VPGIID import VPGIID
 
 
 if __name__ == "__main__":
@@ -41,14 +42,23 @@ if __name__ == "__main__":
     else:
         output_size = env.action_space.n
 
-    policy = PPO(input_size,
-                 hidden_size,
-                 output_size,
-                 clip_ratio=0.4,
-                 isContinuous=is_continuous,
-                 useLSTM=use_lstm,
-                 nLayers=number_of_layers,
-                 usewandb=use_wandb)
+    # policy = PPO(input_size,
+    #              hidden_size,
+    #              output_size,
+    #              clip_ratio=0.4,
+    #              isContinuous=is_continuous,
+    #              useLSTM=use_lstm,
+    #              nLayers=number_of_layers,
+    #              usewandb=use_wandb)
+
+    policy = VPGIID(input_size,
+                    hidden_size,
+                    output_size,
+                    state_radius=5,
+                    isContinuous=is_continuous,
+                    useLSTM=use_lstm,
+                    nLayers=number_of_layers,
+                    usewandb=use_wandb)
 
     # policy = PPOCuriosityCount(input_size,
     #             hidden_size,

@@ -15,7 +15,7 @@ from agents.Agent import Agent
 
 
 class PolicyGradients(Agent):
-    def __init__(self, inp, hid, out, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None, dev="cpu"):
+    def __init__(self, inp, hid, out, isContinuous=False, useLSTM=False, nLayers=1, usewandb=False, env=None, dev="cpu", action_arr=False):
         super(PolicyGradients, self).__init__(inp, hid, out, useLSTM, nLayers, usewandb, env, dev)
         self.isContinuous = isContinuous
         # replace the discreet output with a continuous Gaussian output
@@ -41,10 +41,12 @@ class PolicyGradients(Agent):
             nn.Tanh()
         )
         self.p_optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
-        self.c_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-2)
+        self.c_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-3)
 
         self.log_probs     = []
         self.avg_rewards   = torch.tensor([0.0])
+
+        self.action_arr = action_arr
 
     def getAction(self, x):
         action_distribution = self.getActionDistribution(x)
@@ -55,7 +57,11 @@ class PolicyGradients(Agent):
         self.train_actions.append(sampled_action)
         if not self.isContinuous:
             sampled_action = sampled_action.item()
-        return np.array(sampled_action)
+        if self.action_arr:
+            return np.array([sampled_action])
+        else:
+            return sampled_action
+
 
     def getActionDistribution(self, x):
         distribution_params = self.forward(x)
